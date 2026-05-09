@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A0A0F">
+<title>GrazQuest</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* ═══════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════ */
+:root {
+  --bg:       #0A0A0F;
+  --surface:  #16161F;
+  --card:     #1E1E2A;
+  --border:   rgba(255,255,255,.08);
+  --gold:     #FFD438;
+  --gold2:    #FF9F1C;
+  --green:    #34D87A;
+  --green-dk: #1A7A45;
+  --purple:   #A855F7;
+  --blue:     #38BDF8;
+  --red:      #FF5C5C;
+  --orange:   #FF7B3A;
+  --white:    #FFFFFF;
+  --muted:    rgba(255,255,255,.45);
+  --ff-title: 'Fredoka One', cursive;
+  --ff-body:  'Nunito', sans-serif;
+  --r-card:   20px;
+  --r-btn:    16px;
+  --safe-b:   env(safe-area-inset-bottom, 0px);
+  --safe-t:   env(safe-area-inset-top, 0px);
+}
+
+/* ═══════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html{height:100%;overflow:hidden;background:var(--bg)}
+body{height:100%;overflow:hidden;font-family:var(--ff-body);color:var(--white);background:var(--bg);-webkit-font-smoothing:antialiased}
+
+/* ═══════════════════════════════════════
+   SCREEN SYSTEM
+═══════════════════════════════════════ */
+.screen{
+  position:fixed;inset:0;
+  display:none;flex-direction:column;
+  overflow:hidden;
+  padding-top:var(--safe-t);
+}
+.screen.active{display:flex}
+.scroll-body{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.scroll-body::-webkit-scrollbar{display:none}
+
+/* ═══════════════════════════════════════
+   SHARED COMPONENTS
+═══════════════════════════════════════ */
+
+/* Big CTA button */
+.cta{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:18px 24px;
+  border:none;border-radius:var(--r-btn);
+  font-family:var(--ff-body);font-size:18px;font-weight:800;
+  cursor:pointer;transition:transform .15s,filter .15s;
+  letter-spacing:.3px;
+}
+.cta:active{transform:scale(.96)}
+.cta-gold{background:var(--gold);color:#000}
+.cta-green{background:var(--green);color:#000}
+.cta-ghost{background:rgba(255,255,255,.08);color:var(--white);border:1.5px solid var(--border)}
+.cta-purple{background:var(--purple);color:#fff}
+
+/* Input */
+.field{
+  width:100%;padding:16px 18px;
+  background:var(--card);border:2px solid var(--border);
+  border-radius:14px;color:var(--white);
+  font-family:var(--ff-body);font-size:17px;font-weight:700;
+  outline:none;transition:border-color .2s;
+}
+.field:focus{border-color:var(--gold)}
+.field::placeholder{color:rgba(255,255,255,.25);font-weight:400}
+
+/* Section label */
+.sec-label{
+  font-size:11px;font-weight:800;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--muted);
+  margin-bottom:10px;
+}
+
+/* Pill badge */
+.pill{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:30px;font-size:12px;font-weight:800}
+.pill-gold{background:rgba(255,212,56,.15);color:var(--gold);border:1px solid rgba(255,212,56,.3)}
+.pill-green{background:rgba(52,216,122,.15);color:var(--green);border:1px solid rgba(52,216,122,.3)}
+.pill-purple{background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3)}
+
+/* XP badge pop */
+@keyframes xpPop{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-60px) scale(1.3);opacity:0}}
+.xp-pop{
+  position:fixed;left:50%;transform:translateX(-50%);
+  font-family:var(--ff-title);font-size:28px;color:var(--gold);
+  pointer-events:none;z-index:999;
+  animation:xpPop .9s ease-out forwards;
+  text-shadow:0 2px 12px rgba(255,212,56,.5);
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 1 — WELCOME
+═══════════════════════════════════════ */
+#s-welcome{
+  background:var(--bg);
+  justify-content:space-between;
+}
+.welcome-bg{
+  position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;
+}
+.welcome-orb{
+  position:absolute;border-radius:50%;filter:blur(80px);opacity:.35;pointer-events:none;
+}
+.orb1{width:300px;height:300px;background:var(--purple);top:-80px;right:-60px}
+.orb2{width:260px;height:260px;background:var(--gold2);bottom:80px;left:-80px}
+.orb3{width:200px;height:200px;background:var(--green);bottom:-40px;right:20px;opacity:.2}
+
+.welcome-top{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:40px 28px 24px;
+  position:relative;z-index:1;text-align:center;
+  pointer-events:none;
+}
+.app-icon{
+  width:100px;height:100px;border-radius:28px;
+  background:linear-gradient(135deg,var(--gold),var(--orange));
+  display:flex;align-items:center;justify-content:center;
+  font-size:52px;margin-bottom:24px;
+  box-shadow:0 16px 48px rgba(255,155,28,.4);
+}
+.app-name{
+  font-family:var(--ff-title);font-size:52px;color:var(--white);
+  line-height:1;margin-bottom:6px;
+  text-shadow:0 4px 20px rgba(0,0,0,.3);
+}
+.app-name span{color:var(--gold)}
+.app-tagline{
+  font-size:16px;font-weight:600;color:var(--muted);
+  margin-bottom:28px;line-height:1.5;
+}
+.welcome-chips{
+  display:flex;gap:8px;flex-wrap:wrap;justify-content:center;
+  margin-bottom:8px;
+}
+.welcome-bottom{
+  padding:0 20px calc(28px + var(--safe-b));
+  display:flex;flex-direction:column;gap:12px;
+  position:relative;z-index:2;
+}
+.welcome-meta{
+  text-align:center;font-size:12px;color:rgba(255,255,255,.25);
+  font-weight:600;margin-top:4px;
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 2 — AVATAR
+═══════════════════════════════════════ */
+#s-avatar{background:var(--bg)}
+
+.av-header{
+  padding:calc(16px + var(--safe-t)) 20px 20px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;
+  flex-shrink:0;
+}
+.back-btn{
+  width:40px;height:40px;border-radius:12px;
+  background:var(--card);border:none;color:var(--white);
+  font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.av-header-title{font-family:var(--ff-title);font-size:26px;color:var(--white)}
+.av-header-sub{font-size:13px;color:var(--muted);margin-top:2px}
+
+.av-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px}
+.av-scroll::-webkit-scrollbar{display:none}
+
+/* Selfie box */
+.selfie-box{
+  background:var(--card);border-radius:var(--r-card);
+  border:2px dashed rgba(255,212,56,.4);
+  padding:20px;margin-bottom:20px;
+  display:flex;align-items:center;gap:16px;
+}
+.selfie-preview-wrap{
+  width:72px;height:72px;border-radius:18px;
+  background:var(--surface);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:34px;overflow:hidden;border:2px solid var(--border);
+  position:relative;
+}
+.selfie-preview-wrap img{width:100%;height:100%;object-fit:cover;display:none}
+.selfie-box-info{flex:1}
+.selfie-box-title{font-size:15px;font-weight:800;margin-bottom:4px}
+.selfie-box-sub{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.4}
+.selfie-btn{
+  padding:9px 16px;border-radius:10px;
+  background:var(--gold);color:#000;
+  border:none;font-weight:800;font-size:13px;cursor:pointer;
+  font-family:var(--ff-body);
+}
+
+/* Avatar grid */
+.av-grid-title{font-family:var(--ff-title);font-size:18px;color:var(--muted);margin-bottom:12px}
+.av-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.av-item{
+  background:var(--card);border-radius:16px;
+  padding:14px 6px 10px;text-align:center;
+  border:2.5px solid transparent;cursor:pointer;
+  transition:transform .15s,border-color .15s;
+}
+.av-item:active{transform:scale(.93)}
+.av-item.sel{border-color:var(--gold);background:rgba(255,212,56,.08)}
+.av-item-emoji{font-size:32px;display:block;margin-bottom:5px}
+.av-item-label{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+
+/* Name input */
+.name-section{margin-bottom:20px}
+.name-section .sec-label{color:var(--muted)}
+
+.av-footer{
+  padding:12px 20px calc(16px + var(--safe-b));
+  background:var(--surface);border-top:1px solid var(--border);
+  flex-shrink:0;display:flex;flex-direction:column;gap:10px;
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 3 — FRIENDS (pre-tour)
+═══════════════════════════════════════ */
+#s-friends{background:var(--bg)}
+.fr-header{
+  padding:calc(16px + var(--safe-t)) 20px 20px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  flex-shrink:0;display:flex;align-items:center;gap:14px;
+}
+.fr-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px}
+.fr-scroll::-webkit-scrollbar{display:none}
+
+.code-card{
+  background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(56,189,248,.1));
+  border:2px solid rgba(168,85,247,.4);
+  border-radius:var(--r-card);padding:24px;
+  text-align:center;margin-bottom:20px;
+}
+.code-card-label{font-size:11px;font-weight:800;color:var(--purple);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.code-display{
+  font-family:var(--ff-title);font-size:48px;
+  color:var(--white);letter-spacing:10px;
+  margin-bottom:8px;line-height:1;
+}
+.code-hint{font-size:13px;color:var(--muted)}
+.code-copy-btn{
+  margin-top:14px;padding:10px 24px;
+  background:var(--purple);color:#fff;
+  border:none;border-radius:12px;font-weight:800;
+  font-size:14px;cursor:pointer;font-family:var(--ff-body);
+}
+
+.join-card{
+  background:var(--card);border-radius:var(--r-card);
+  padding:20px;margin-bottom:20px;
+}
+.join-card-title{font-size:16px;font-weight:800;margin-bottom:14px}
+.join-row{display:flex;gap:10px}
+.join-input{
+  flex:1;padding:14px 16px;
+  background:var(--surface);border:2px solid var(--border);
+  border-radius:12px;color:var(--white);
+  font-family:var(--ff-title);font-size:22px;letter-spacing:4px;
+  text-transform:uppercase;outline:none;text-align:center;
+}
+.join-input:focus{border-color:var(--purple)}
+.join-go{
+  padding:14px 18px;background:var(--purple);color:#fff;
+  border:none;border-radius:12px;font-weight:800;font-size:15px;
+  cursor:pointer;font-family:var(--ff-body);
+}
+
+.friend-item{
+  background:var(--card);border-radius:16px;
+  padding:14px 16px;display:flex;align-items:center;gap:12px;
+  margin-bottom:10px;
+}
+.friend-avi{
+  width:46px;height:46px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;background:var(--surface);flex-shrink:0;
+  overflow:hidden;
+}
+.friend-avi img{width:100%;height:100%;object-fit:cover}
+.friend-info{flex:1}
+.friend-name-t{font-size:15px;font-weight:800}
+.friend-status-t{font-size:12px;color:var(--muted);margin-top:2px}
+.friend-xp-t{font-family:var(--ff-title);font-size:18px;color:var(--gold)}
+
+.fr-footer{
+  padding:12px 20px calc(16px + var(--safe-b));
+  background:var(--surface);border-top:1px solid var(--border);
+  flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 4 — MAIN TOUR
+═══════════════════════════════════════ */
+#s-tour{background:var(--bg)}
+
+/* Status bar */
+.status-bar{
+  background:var(--surface);
+  padding:calc(8px + var(--safe-t)) 16px 12px;
+  flex-shrink:0;border-bottom:1px solid var(--border);
+}
+.status-row1{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.player-chip{
+  display:flex;align-items:center;gap:8px;
+  background:var(--card);border-radius:30px;
+  padding:5px 12px 5px 5px;flex-shrink:0;
+}
+.pc-avi{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--gold);display:flex;align-items:center;
+  justify-content:center;font-size:18px;overflow:hidden;flex-shrink:0;
+}
+.pc-avi img{width:100%;height:100%;object-fit:cover}
+.pc-name{font-size:13px;font-weight:800;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.level-pill{
+  background:linear-gradient(90deg,var(--purple),var(--blue));
+  border-radius:20px;padding:4px 12px;
+  font-size:11px;font-weight:800;letter-spacing:.5px;
+  flex-shrink:0;
+}
+
+.friends-mini{
+  margin-left:auto;display:flex;align-items:center;gap:6px;
+  cursor:pointer;
+}
+.fmini-stack{display:flex}
+.fmini-dot{
+  width:28px;height:28px;border-radius:50%;
+  background:var(--card);border:2px solid var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;margin-left:-8px;
+}
+.fmini-dot:first-child{margin-left:0}
+.fmini-count{font-size:12px;font-weight:800;color:var(--muted)}
+
+/* XP bar row */
+.xp-row{display:flex;align-items:center;gap:10px}
+.xp-track{
+  flex:1;height:10px;background:rgba(255,255,255,.08);
+  border-radius:5px;overflow:hidden;
+}
+.xp-fill{
+  height:100%;
+  background:linear-gradient(90deg,var(--gold),var(--orange));
+  border-radius:5px;transition:width .6s cubic-bezier(.4,0,.2,1);
+}
+.xp-label-t{font-size:12px;font-weight:800;color:var(--gold);white-space:nowrap}
+
+/* Tab bar */
+.tour-tabs{
+  display:flex;background:var(--surface);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.t-tab{
+  flex:1;padding:10px 4px 8px;text-align:center;
+  cursor:pointer;border-bottom:3px solid transparent;
+  transition:border-color .2s;
+}
+.t-tab.on{border-bottom-color:var(--gold)}
+.t-tab-icon{font-size:20px;display:block;margin-bottom:2px}
+.t-tab-label{font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.t-tab.on .t-tab-label{color:var(--gold)}
+
+/* Panels */
+.panels{flex:1;position:relative;overflow:hidden}
+.panel{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;display:none;-webkit-overflow-scrolling:touch}
+.panel::-webkit-scrollbar{display:none}
+.panel.on{display:block}
+
+/* ─ STOP DOTS ─ */
+.stop-ribbon{
+  padding:14px 16px 10px;background:var(--surface);
+  border-bottom:1px solid var(--border);
+}
+.stop-ribbon-label{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.stop-dots{display:flex;align-items:center;overflow-x:auto;gap:0;padding-bottom:4px}
+.stop-dots::-webkit-scrollbar{display:none}
+.s-dot{
+  flex-shrink:0;width:38px;height:38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;border:2.5px solid rgba(255,255,255,.1);
+  background:var(--card);cursor:pointer;transition:all .2s;
+}
+.s-dot.done{background:var(--green);border-color:var(--green);font-size:14px}
+.s-dot.now{
+  border-color:var(--gold);
+  box-shadow:0 0 0 4px rgba(255,212,56,.2);
+  animation:dotPulse 2s ease-in-out infinite;
+}
+.s-dot.food{background:rgba(255,123,58,.15);border-color:rgba(255,123,58,.4)}
+.s-dot.food.done{background:var(--orange);border-color:var(--orange)}
+@keyframes dotPulse{0%,100%{box-shadow:0 0 0 4px rgba(255,212,56,.2)}50%{box-shadow:0 0 0 8px rgba(255,212,56,.05)}}
+.s-line{flex:1;height:3px;background:rgba(255,255,255,.08);min-width:8px;border-radius:2px}
+.s-line.done{background:var(--green)}
+
+/* ─ CURRENT STOP CARD ─ */
+.stop-card{
+  margin:14px;
+  background:var(--card);border-radius:24px;
+  overflow:hidden;
+}
+.sc-hero{
+  height:170px;display:flex;align-items:center;justify-content:center;
+  font-size:72px;position:relative;overflow:hidden;
+}
+.sc-hero-glow{
+  position:absolute;inset:0;
+  background:radial-gradient(circle at center, rgba(255,255,255,.05) 0%, transparent 70%);
+}
+.sc-type-badge{
+  position:absolute;top:14px;right:14px;
+  padding:5px 12px;border-radius:20px;
+  font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+}
+.badge-sight{background:rgba(52,216,122,.2);color:var(--green);border:1px solid rgba(52,216,122,.4)}
+.badge-food{background:rgba(255,123,58,.2);color:var(--orange);border:1px solid rgba(255,123,58,.4)}
+.stop-num-badge{
+  position:absolute;top:14px;left:14px;
+  background:rgba(0,0,0,.5);backdrop-filter:blur(8px);
+  padding:4px 10px;border-radius:20px;
+  font-size:11px;font-weight:800;color:rgba(255,255,255,.7);
+}
+
+.sc-body{padding:18px 18px 20px}
+.sc-name{font-family:var(--ff-title);font-size:26px;line-height:1.1;margin-bottom:10px}
+.sc-desc{font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:14px}
+.sc-meta-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+
+/* Challenge box */
+.challenge-box{
+  background:var(--surface);border-radius:16px;
+  padding:16px;margin-bottom:14px;
+  border-left:4px solid var(--gold);
+}
+.ch-eyebrow{font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+.ch-text{font-size:14px;font-weight:600;line-height:1.6;margin-bottom:10px}
+.ch-reward{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:var(--green)}
+
+/* Photo proof */
+.photo-box{
+  background:rgba(255,212,56,.05);
+  border:2px dashed rgba(255,212,56,.3);
+  border-radius:16px;padding:16px;margin-bottom:14px;
+  text-align:center;
+}
+.photo-box.done-state{
+  background:rgba(52,216,122,.05);
+  border-color:rgba(52,216,122,.3);
+}
+.pb-icon{font-size:36px;margin-bottom:8px;display:block}
+.pb-title{font-size:14px;font-weight:800;margin-bottom:4px}
+.pb-sub{font-size:12px;color:var(--muted);margin-bottom:12px}
+.pb-thumbs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.pb-thumb{width:70px;height:70px;border-radius:12px;object-fit:cover;border:2px solid var(--green)}
+.pb-cam-btn{
+  padding:12px 24px;border-radius:12px;
+  background:var(--gold);color:#000;
+  border:none;font-weight:800;font-size:15px;cursor:pointer;
+  font-family:var(--ff-body);
+  display:flex;align-items:center;gap:8px;margin:0 auto;
+}
+
+/* AI hint */
+.ai-hint{
+  background:rgba(56,189,248,.08);border:1.5px solid rgba(56,189,248,.2);
+  border-radius:14px;padding:14px;margin-bottom:14px;display:none;
+}
+.ai-hint.vis{display:block}
+.ai-hint-label{font-size:10px;font-weight:800;color:var(--blue);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.ai-hint-text{font-size:13px;color:var(--white);line-height:1.65;opacity:.85}
+
+/* Action row */
+.sc-actions{display:flex;gap:10px}
+.hint-btn{
+  flex:1;padding:15px 10px;border-radius:14px;
+  border:2px solid rgba(56,189,248,.3);background:transparent;
+  color:var(--blue);font-weight:800;font-size:14px;
+  cursor:pointer;font-family:var(--ff-body);
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.arrive-btn{
+  flex:2;padding:15px 10px;border-radius:14px;
+  border:none;background:linear-gradient(135deg,var(--green),#20B460);
+  color:#000;font-weight:900;font-size:15px;
+  cursor:pointer;font-family:var(--ff-body);
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:filter .2s;
+}
+.arrive-btn:active{filter:brightness(1.1)}
+.arrive-btn:disabled{
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.3);
+  cursor:not-allowed;
+}
+
+/* Upcoming */
+.upcoming-section{padding:0 14px calc(24px + var(--safe-b))}
+.upcoming-title{font-family:var(--ff-title);font-size:18px;color:var(--muted);padding:16px 0 10px}
+.up-card{
+  background:var(--card);border-radius:16px;
+  padding:14px;display:flex;align-items:center;gap:12px;
+  margin-bottom:10px;
+}
+.up-icon{
+  width:48px;height:48px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;flex-shrink:0;background:var(--surface);
+}
+.up-info{flex:1}
+.up-name{font-size:14px;font-weight:800;margin-bottom:3px}
+.up-dist{font-size:12px;color:var(--muted)}
+.up-xp{font-family:var(--ff-title);font-size:20px;color:var(--gold)}
+
+/* ─ MAP ─ */
+#mapContainer{height:100%;min-height:300px}
+
+/* ─ FRIENDS (in-tour) ─ */
+.ft-scroll{padding:16px}
+
+.leaderboard-card{
+  background:var(--card);border-radius:var(--r-card);
+  overflow:hidden;margin-bottom:16px;
+}
+.lb-header{
+  background:linear-gradient(135deg,rgba(168,85,247,.3),rgba(56,189,248,.2));
+  padding:14px 16px;display:flex;align-items:center;justify-content:space-between;
+}
+.lb-title{font-family:var(--ff-title);font-size:20px}
+.lb-code{font-family:var(--ff-title);font-size:14px;color:var(--purple);letter-spacing:3px}
+.lb-row{
+  padding:12px 16px;display:flex;align-items:center;gap:12px;
+  border-top:1px solid var(--border);
+}
+.lb-rank{font-family:var(--ff-title);font-size:22px;width:28px;text-align:center;flex-shrink:0}
+.lb-avi{width:40px;height:40px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;overflow:hidden}
+.lb-avi img{width:100%;height:100%;object-fit:cover}
+.lb-info{flex:1}
+.lb-name{font-size:14px;font-weight:800}
+.lb-progress{font-size:12px;color:var(--muted);margin-top:2px}
+.lb-xp{font-family:var(--ff-title);font-size:22px;color:var(--gold)}
+
+.add-friend-card{background:var(--card);border-radius:var(--r-card);padding:16px;margin-bottom:16px}
+.afc-title{font-size:15px;font-weight:800;margin-bottom:12px}
+
+/* ─ PHOTOS ─ */
+.photos-scroll{padding:16px}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.photo-cell{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--card)}
+.photo-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-cell-label{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(0,0,0,.7));
+  padding:16px 6px 5px;font-size:9px;font-weight:800;
+  color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-align:center;
+}
+.no-photos{padding:60px 20px;text-align:center;color:var(--muted)}
+.no-photos-icon{font-size:52px;display:block;margin-bottom:14px}
+.no-photos-text{font-size:15px;font-weight:700;line-height:1.5}
+
+/* ═══════════════════════════════════════
+   SCREEN 5 — COMPLETE
+═══════════════════════════════════════ */
+#s-complete{background:var(--bg)}
+.complete-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.complete-scroll::-webkit-scrollbar{display:none}
+
+.complete-hero{
+  background:linear-gradient(160deg,#1A0A2E,#0A1A2A);
+  padding:calc(40px + var(--safe-t)) 24px 32px;
+  text-align:center;
+  position:relative;overflow:hidden;
+}
+.complete-stars{
+  position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0%, rgba(168,85,247,.3) 0%, transparent 60%);
+}
+.trophy-wrap{
+  font-size:80px;margin-bottom:16px;
+  display:block;
+  animation:trophyIn .8s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+@keyframes trophyIn{0%{transform:scale(0) rotate(-20deg)}100%{transform:scale(1) rotate(0)}}
+.complete-title{font-family:var(--ff-title);font-size:40px;margin-bottom:6px;line-height:1}
+.complete-sub{font-size:15px;color:var(--muted);margin-bottom:24px;font-weight:600}
+.stats-row{display:flex;gap:10px}
+.stat-box{
+  flex:1;background:rgba(255,255,255,.07);border-radius:16px;
+  padding:16px 8px;text-align:center;
+}
+.stat-num{font-family:var(--ff-title);font-size:30px;color:var(--gold)}
+.stat-lbl{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+
+/* Memory reel */
+.memory-reel{padding:20px}
+.reel-title{font-family:var(--ff-title);font-size:24px;margin-bottom:14px;text-align:center}
+#memCanvas{
+  width:100%;border-radius:20px;display:block;
+  background:var(--card);margin-bottom:14px;
+  box-shadow:0 12px 40px rgba(0,0,0,.4);
+}
+.reel-controls{display:flex;gap:10px;margin-bottom:16px}
+.reel-play{
+  flex:1;padding:16px;border-radius:14px;
+  border:none;background:linear-gradient(135deg,var(--gold),var(--orange));
+  color:#000;font-weight:900;font-size:16px;cursor:pointer;
+  font-family:var(--ff-body);
+}
+.reel-save{
+  flex:1;padding:16px;border-radius:14px;
+  border:2px solid var(--border);background:transparent;
+  color:var(--white);font-weight:800;font-size:16px;cursor:pointer;
+  font-family:var(--ff-body);
+}
+.filmstrip{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:20px}
+.filmstrip::-webkit-scrollbar{display:none}
+.film-frame{
+  flex-shrink:0;width:72px;height:72px;border-radius:12px;
+  overflow:hidden;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+}
+.film-frame img{width:100%;height:100%;object-fit:cover}
+.complete-actions{display:flex;flex-direction:column;gap:10px;padding:0 20px calc(24px + var(--safe-b))}
+
+/* ═══════════════════════════════════════
+   CAMERA OVERLAY
+═══════════════════════════════════════ */
+.cam-overlay{
+  position:fixed;inset:0;background:#000;z-index:800;
+  display:none;flex-direction:column;
+}
+.cam-overlay.open{display:flex}
+.cam-video{width:100%;flex:1;object-fit:cover;min-height:0}
+.cam-canvas{display:none}
+
+.cam-fx-strip{
+  display:flex;gap:8px;padding:10px 16px;
+  background:rgba(0,0,0,.9);overflow-x:auto;flex-shrink:0;
+}
+.cam-fx-strip::-webkit-scrollbar{display:none}
+.fx-btn{
+  padding:8px 18px;border-radius:20px;
+  border:2px solid rgba(255,255,255,.2);color:#fff;
+  background:transparent;font-weight:800;font-size:13px;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  font-family:var(--ff-body);
+}
+.fx-btn.on{background:var(--gold);border-color:var(--gold);color:#000}
+
+.cam-controls{
+  background:rgba(0,0,0,.92);
+  padding:18px 28px;
+  padding-bottom:max(20px, var(--safe-b));
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;min-height:110px;
+}
+.cam-side-btn{
+  width:52px;height:52px;border-radius:16px;
+  background:rgba(255,255,255,.12);border:none;
+  color:#fff;font-size:22px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.cam-shutter{
+  width:76px;height:76px;border-radius:50%;
+  background:#fff;
+  border:5px solid rgba(255,255,255,.3);
+  box-shadow:0 0 0 4px rgba(255,255,255,.1);
+  cursor:pointer;flex-shrink:0;
+  transition:transform .12s;
+}
+.cam-shutter:active{transform:scale(.88)}
+
+/* ═══════════════════════════════════════
+   SELFIE OVERLAY
+═══════════════════════════════════════ */
+.selfie-overlay{
+  position:fixed;inset:0;background:#000;z-index:900;
+  display:none;flex-direction:column;
+}
+.selfie-overlay.open{display:flex}
+.selfie-video{width:100%;flex:1;object-fit:cover;min-height:0}
+.selfie-canvas{display:none}
+.selfie-label{
+  background:rgba(0,0,0,.9);padding:10px 16px;
+  text-align:center;font-family:var(--ff-title);font-size:18px;
+  color:var(--gold);flex-shrink:0;
+}
+.selfie-fx-strip{
+  display:flex;gap:8px;padding:10px 16px;
+  background:rgba(0,0,0,.9);overflow-x:auto;flex-shrink:0;
+}
+.selfie-fx-strip::-webkit-scrollbar{display:none}
+.selfie-controls{
+  background:rgba(0,0,0,.92);
+  padding:18px 28px;
+  padding-bottom:max(20px, var(--safe-b));
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;min-height:110px;
+}
+.selfie-shutter{
+  width:76px;height:76px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),var(--orange));
+  border:5px solid rgba(255,255,255,.25);
+  box-shadow:0 0 0 4px rgba(255,209,28,.15);
+  cursor:pointer;flex-shrink:0;transition:transform .12s;
+}
+.selfie-shutter:active{transform:scale(.88)}
+
+/* ─ History accordion ─ */
+.history-box{background:var(--surface);border-radius:16px;margin-bottom:14px;overflow:hidden;border:1px solid var(--border)}
+.hb-header{display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer;user-select:none}
+.hb-icon{font-size:18px;flex-shrink:0}
+.hb-title{font-size:14px;font-weight:800;flex:1}
+.hb-arrow{font-size:12px;color:var(--muted);transition:transform .25s;flex-shrink:0}
+.hb-arrow.open{transform:rotate(180deg)}
+.hb-preview{padding:0 14px 13px;font-size:13px;color:var(--muted);line-height:1.6}
+.hb-full{padding:0 14px 14px;font-size:13px;color:rgba(255,255,255,.8);line-height:1.7;display:none;border-top:1px solid var(--border);padding-top:12px}
+.hb-full.open{display:block}
+
+/* ─ Next stop navigator ─ */
+.next-stop-box{background:linear-gradient(135deg,rgba(52,216,122,.08),rgba(56,189,248,.06));border:2px solid rgba(52,216,122,.3);border-radius:18px;padding:18px;margin-top:14px}
+.nsb-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.nsb-icon{font-size:24px}
+.nsb-title{font-family:var(--ff-title);font-size:20px;color:var(--green)}
+.nsb-img-row{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+.nsb-hint{font-size:13px;color:rgba(255,255,255,.8);line-height:1.7;background:rgba(0,0,0,.2);border-radius:12px;padding:12px;margin-bottom:12px}
+.nsb-transit{display:flex;align-items:center;gap:8px;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--blue)}
+.nsb-go-btn{width:100%;padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--green),#20B460);color:#000;font-weight:900;font-size:16px;cursor:pointer;font-family:var(--ff-body)}
+.nsb-go-btn:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:not-allowed}
+
+/* ─ Scavenger hunt box ─ */
+.scavenger-box{background:rgba(255,212,56,.06);border:2px solid rgba(255,212,56,.25);border-radius:14px;padding:16px;margin-bottom:12px}
+.sbox-label{font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+.sbox-question{font-size:14px;font-weight:700;color:var(--white);line-height:1.55;margin-bottom:12px}
+.sbox-input-row{display:flex;gap:8px}
+.sbox-input{flex:1;padding:12px 14px;background:var(--surface);border:2px solid var(--border);border-radius:10px;color:var(--white);font-size:16px;font-family:var(--ff-body);outline:none;transition:border-color .2s}
+.sbox-input:focus{border-color:var(--gold)}
+.sbox-input::placeholder{color:rgba(255,255,255,.25)}
+.sbox-btn{padding:12px 18px;background:var(--gold);color:#000;border:none;border-radius:10px;font-weight:900;font-size:18px;cursor:pointer;font-family:var(--ff-body);flex-shrink:0}
+.sbox-feedback{font-size:13px;font-weight:700;margin-top:8px;min-height:18px;transition:all .2s}
+.sbox-feedback.ok{color:var(--green)}
+.sbox-feedback.err{color:var(--red)}
+
+/* ─ Map avatar pulse ─ */
+@keyframes avatarPulse{0%,100%{box-shadow:0 0 0 4px rgba(255,212,56,.3),0 4px 16px rgba(0,0,0,.5)}50%{box-shadow:0 0 0 10px rgba(255,212,56,.05),0 4px 16px rgba(0,0,0,.5)}}
+
+/* ═══════════════════════════════════════
+   TOAST & CELEBRATION
+═══════════════════════════════════════ */
+.toast{
+  position:fixed;
+  bottom:calc(28px + var(--safe-b));
+  left:50%;transform:translateX(-50%) translateY(16px);
+  background:var(--surface);color:#fff;
+  padding:12px 22px;border-radius:30px;
+  font-size:14px;font-weight:700;
+  opacity:0;transition:all .25s;z-index:700;
+  white-space:nowrap;pointer-events:none;
+  border:1px solid var(--border);
+  backdrop-filter:blur(8px);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.celebration{
+  position:fixed;inset:0;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+  z-index:600;opacity:0;transition:opacity .2s;
+}
+.celebration.show{opacity:1}
+.celeb-text{
+  font-family:var(--ff-title);font-size:56px;
+  color:var(--gold);
+  text-shadow:0 4px 24px rgba(255,212,56,.6);
+  animation:celebPop .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes celebPop{0%{transform:scale(0)}100%{transform:scale(1)}}
+
+/* Confetti */
+.confetti{
+  position:fixed;border-radius:3px;z-index:599;
+  pointer-events:none;
+  animation:confettiFall 2.2s ease-in forwards;
+}
+@keyframes confettiFall{
+  0%{opacity:1;transform:translateY(-10px) rotate(0)}
+  100%{opacity:0;transform:translateY(110vh) rotate(800deg)}
+}
+
+/* Flash */
+.flash{position:fixed;inset:0;background:#fff;z-index:850;opacity:0;pointer-events:none;transition:opacity .08s}
+
+/* ═══ ONBOARDING ═══ */
+#s-onboard{background:var(--bg);justify-content:flex-end}
+.ob-inner{width:100%;display:flex;flex-direction:column;padding:0 24px calc(32px + var(--safe-b))}
+.ob-slides{flex:1;display:flex;align-items:center;justify-content:center;padding:60px 0 20px}
+.ob-slide{display:none;flex-direction:column;align-items:center;text-align:center;animation:obFade .4s ease}
+.ob-slide.active{display:flex}
+@keyframes obFade{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.ob-art{font-size:80px;margin-bottom:24px;filter:drop-shadow(0 8px 24px rgba(255,212,56,.3))}
+.ob-title{font-family:var(--ff-title);font-size:34px;color:var(--white);line-height:1.1;margin-bottom:14px}
+.ob-title span{color:var(--gold)}
+.ob-text{font-size:15px;color:var(--muted);line-height:1.65;max-width:320px;font-weight:600}
+.ob-dots{display:flex;gap:8px;justify-content:center;margin-bottom:28px}
+.ob-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .3s}
+.ob-dot.active{width:24px;border-radius:4px;background:var(--gold)}
+.ob-btns{display:flex;flex-direction:column;gap:10px}
+
+/* ═══ TOUR TYPE ═══ */
+#s-tourtype{background:var(--bg)}
+.tt-header{padding:calc(20px + var(--safe-t)) 24px 20px;text-align:center;flex-shrink:0}
+.tt-title{font-family:var(--ff-title);font-size:30px;color:var(--white);line-height:1.1;margin-bottom:8px}
+.tt-sub{font-size:14px;color:var(--muted);font-weight:600}
+.tt-scroll{flex:1;overflow-y:auto;padding:0 16px;display:flex;flex-direction:column;gap:12px}
+.tt-scroll::-webkit-scrollbar{display:none}
+.tt-card{background:var(--card);border-radius:20px;padding:18px;border:2px solid var(--border);cursor:pointer;transition:all .2s}
+.tt-card:active{transform:scale(.98)}
+.tt-card.sel{border-color:var(--gold);background:rgba(255,212,56,.06)}
+.tt-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.tt-icon{font-size:32px}
+.tt-check{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:var(--gold);transition:all .2s}
+.tt-card.sel .tt-check{background:var(--gold);color:#000;border-color:var(--gold)}
+.tt-card-name{font-family:var(--ff-title);font-size:22px;color:var(--white);margin-bottom:6px}
+.tt-card-desc{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:12px}
+.tt-card-meta{display:flex;gap:6px;flex-wrap:wrap}
+.tt-footer{padding:12px 16px calc(16px + var(--safe-b));background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+
+/* ═══ BITMOJI ═══ */
+.bitmoji-styles{margin-bottom:20px;background:var(--card);border-radius:16px;padding:16px}
+.bm-style-row{display:flex;gap:10px;margin-bottom:12px}
+.bm-style-opt{flex:1;background:var(--surface);border-radius:12px;padding:12px 6px;text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s}
+.bm-style-opt:active{transform:scale(.95)}
+.bm-style-opt.sel{border-color:var(--gold);background:rgba(255,212,56,.08)}
+.bm-style-icon{font-size:24px;margin-bottom:4px}
+.bm-style-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.bm-regenerate-btn{text-align:center;padding:10px;background:var(--surface);border-radius:10px;font-size:13px;font-weight:700;color:var(--blue);cursor:pointer}
+.bitmoji-loading{position:absolute;inset:0;background:rgba(0,0,0,.7);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ════════════ SCREEN: WELCOME ════════════ -->
+<div id="s-welcome" class="screen active">
+  <div class="welcome-bg">
+    <div class="welcome-orb orb1"></div>
+    <div class="welcome-orb orb2"></div>
+    <div class="welcome-orb orb3"></div>
+  </div>
+  <div class="welcome-top">
+    <div class="app-icon">🗺️</div>
+    <div class="app-name">Graz<span>Quest</span></div>
+    <div class="app-tagline">Entdecke Graz spielerisch.<br>Löse Challenges · Sammle XP · Iss gut.</div>
+    <div class="welcome-chips">
+      <span class="pill pill-gold">⭐ 11 Stops</span>
+      <span class="pill pill-green">🚶 ~4 Stunden</span>
+      <span class="pill pill-purple">👥 Gruppen-Modus</span>
+    </div>
+  </div>
+  <div class="welcome-bottom">
+    <button class="cta cta-gold" onclick="go('s-onboard')">🎮 &nbsp;Abenteuer starten!</button>
+    <button class="cta cta-ghost" onclick="go('s-friends')">👥 &nbsp;Gruppe beitreten</button>
+    <div class="welcome-meta">GrazQuest · Graz, Steiermark 🇦🇹</div>
+  </div>
+</div>
+
+<!-- ════════════ SCREEN: ONBOARDING ════════════ -->
+<div id="s-onboard" class="screen">
+  <div class="ob-inner">
+    <div class="ob-slides" id="obSlides">
+
+      <!-- Slide 1 -->
+      <div class="ob-slide active" id="ob0">
+        <div class="ob-art">🗺️</div>
+        <div class="ob-title">Willkommen bei<br><span>GrazQuest!</span></div>
+        <div class="ob-text">Erlebe Graz wie ein echtes Abenteuer. Du löst Challenges, sammelst XP und entdeckst die Stadt spielerisch — alleine oder mit Freunden.</div>
+      </div>
+
+      <!-- Slide 2 -->
+      <div class="ob-slide" id="ob1">
+        <div class="ob-art">🎯</div>
+        <div class="ob-title">Challenges &<br><span>Schnitzeljagd</span></div>
+        <div class="ob-text">Jede Sehenswürdigkeit hat eine Challenge die du lösen musst. Unterwegs gibt es Schnitzeljagd-Aufgaben — erst wenn du sie löst, geht es weiter zum nächsten Stop!</div>
+      </div>
+
+      <!-- Slide 3 -->
+      <div class="ob-slide" id="ob2">
+        <div class="ob-art">📸</div>
+        <div class="ob-title">Beweisfotos &<br><span>Erinnerungen</span></div>
+        <div class="ob-text">Jede Challenge braucht ein Beweisfoto. Alle Fotos werden am Ende zu einem persönlichen Erinnerungs-Video zusammengefügt das du teilen kannst!</div>
+      </div>
+
+      <!-- Slide 4 -->
+      <div class="ob-slide" id="ob3">
+        <div class="ob-art">👥</div>
+        <div class="ob-title">Gemeinsam<br><span>mehr Spaß!</span></div>
+        <div class="ob-text">Lade Freunde ein und reist gemeinsam. Eine Live-Rangliste zeigt wer vorne liegt. Der KI-Guide gibt dir jederzeit Tipps und Fun Facts!</div>
+      </div>
+
+    </div>
+
+    <!-- Dots -->
+    <div class="ob-dots">
+      <div class="ob-dot active" id="dot0"></div>
+      <div class="ob-dot" id="dot1"></div>
+      <div class="ob-dot" id="dot2"></div>
+      <div class="ob-dot" id="dot3"></div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="ob-btns">
+      <button class="cta cta-gold" id="obNext" onclick="obNext()">Weiter →</button>
+      <button class="cta cta-ghost" onclick="go('s-tourtype')" style="font-size:14px">Überspringen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ SCREEN: TOUR TYPE ════════════ -->
+<div id="s-tourtype" class="screen">
+  <div class="tt-header">
+    <div class="tt-title">Wie möchtest du<br>Graz entdecken?</div>
+    <div class="tt-sub">Wähle deine Tour — wir passen das Erlebnis an!</div>
+  </div>
+  <div class="tt-scroll">
+
+    <div class="tt-card sel" id="tt-full" onclick="selectTourType('full',this)">
+      <div class="tt-card-top">
+        <div class="tt-icon">🏰🍺</div>
+        <div class="tt-check" id="check-full">✓</div>
+      </div>
+      <div class="tt-card-name">Komplette Tour</div>
+      <div class="tt-card-desc">Sehenswürdigkeiten + Kulinarik — das volle Graz-Erlebnis mit 11 Stops, Bier am Schlossberg und steirischem Abendessen</div>
+      <div class="tt-card-meta">
+        <span class="pill pill-gold">⏱ ~4 Stunden</span>
+        <span class="pill pill-green">11 Stops</span>
+        <span class="pill pill-purple">1330 XP</span>
+      </div>
+    </div>
+
+    <div class="tt-card" id="tt-sight" onclick="selectTourType('sight',this)">
+      <div class="tt-card-top">
+        <div class="tt-icon">🏰📸</div>
+        <div class="tt-check" id="check-sight"></div>
+      </div>
+      <div class="tt-card-name">Sightseeing Tour</div>
+      <div class="tt-card-desc">Nur die Top-Sehenswürdigkeiten — ideal wenn du wenig Zeit hast oder kulturell in die Tiefe gehen willst</div>
+      <div class="tt-card-meta">
+        <span class="pill pill-gold">⏱ ~2.5 Stunden</span>
+        <span class="pill pill-green">8 Stops</span>
+        <span class="pill pill-purple">1050 XP</span>
+      </div>
+    </div>
+
+    <div class="tt-card" id="tt-food" onclick="selectTourType('food',this)">
+      <div class="tt-card-top">
+        <div class="tt-icon">🍺🥩</div>
+        <div class="tt-check" id="check-food"></div>
+      </div>
+      <div class="tt-card-name">Kulinarik Tour</div>
+      <div class="tt-card-desc">Graz kulinarisch entdecken — von der Biergarten-Jause bis zum steirischen Abendessen, mit den schönsten Plätzen dazwischen</div>
+      <div class="tt-card-meta">
+        <span class="pill pill-gold">⏱ ~2 Stunden</span>
+        <span class="pill pill-green">6 Stops</span>
+        <span class="pill pill-purple">560 XP</span>
+      </div>
+    </div>
+
+  </div>
+  <div class="tt-footer">
+    <button class="cta cta-gold" onclick="go('s-avatar')">Weiter → Avatar wählen</button>
+  </div>
+</div>
+
+<!-- ════════════ SCREEN: AVATAR ════════════ -->
+<div id="s-avatar" class="screen">
+  <div class="av-header">
+    <button class="back-btn" onclick="go('s-tourtype')">←</button>
+    <div>
+      <div class="av-header-title">Dein Avatar</div>
+      <div class="av-header-sub">Selfie → Bitmoji oder Figur wählen</div>
+    </div>
+  </div>
+  <div class="av-scroll">
+
+    <!-- Bitmoji Selfie box -->
+    <div class="selfie-box" id="selfieBox">
+      <div class="selfie-preview-wrap" id="selfieWrap">
+        <span id="selfieEmoji">🤳</span>
+        <img id="selfieImg" alt="">
+        <canvas id="bitmojiCanvas" style="display:none;width:100%;height:100%;border-radius:16px"></canvas>
+      </div>
+      <div class="selfie-box-info">
+        <div class="selfie-box-title">Bitmoji-Avatar</div>
+        <div class="selfie-box-sub">Selfie machen → KI wandelt dich in eine Cartoon-Figur um! 🎨</div>
+        <button class="selfie-btn" id="selfieBtn" onclick="openSelfie()">📸 Selfie machen</button>
+      </div>
+    </div>
+
+    <!-- Bitmoji style selector (shown after selfie) -->
+    <div class="bitmoji-styles" id="bitmojiStyles" style="display:none">
+      <div class="sec-label">Cartoon-Stil wählen</div>
+      <div class="bm-style-row">
+        <div class="bm-style-opt sel" id="bms-comic" onclick="setBitmojiStyle('comic',this)">
+          <div class="bm-style-icon">🎨</div>
+          <div class="bm-style-label">Comic</div>
+        </div>
+        <div class="bm-style-opt" id="bms-anime" onclick="setBitmojiStyle('anime',this)">
+          <div class="bm-style-icon">✨</div>
+          <div class="bm-style-label">Anime</div>
+        </div>
+        <div class="bm-style-opt" id="bms-pixel" onclick="setBitmojiStyle('pixel',this)">
+          <div class="bm-style-icon">👾</div>
+          <div class="bm-style-label">Pixel</div>
+        </div>
+        <div class="bm-style-opt" id="bms-sketch" onclick="setBitmojiStyle('sketch',this)">
+          <div class="bm-style-icon">✏️</div>
+          <div class="bm-style-label">Sketch</div>
+        </div>
+      </div>
+      <div class="bm-regenerate-btn" onclick="regenerateBitmoji()">🔄 Neu generieren</div>
+    </div>
+
+    <!-- Avatar grid -->
+    <div class="av-grid-title">Oder Figur wählen</div>
+    <div class="av-grid">
+      <div class="av-item sel" onclick="pickAv(this,'🧙')"><span class="av-item-emoji">🧙</span><span class="av-item-label">Zauberer</span></div>
+      <div class="av-item" onclick="pickAv(this,'🥷')"><span class="av-item-emoji">🥷</span><span class="av-item-label">Ninja</span></div>
+      <div class="av-item" onclick="pickAv(this,'🦸')"><span class="av-item-emoji">🦸</span><span class="av-item-label">Held</span></div>
+      <div class="av-item" onclick="pickAv(this,'🧝')"><span class="av-item-emoji">🧝</span><span class="av-item-label">Elfe</span></div>
+      <div class="av-item" onclick="pickAv(this,'🕵️')"><span class="av-item-emoji">🕵️</span><span class="av-item-label">Detektiv</span></div>
+      <div class="av-item" onclick="pickAv(this,'🧜')"><span class="av-item-emoji">🧜</span><span class="av-item-label">Nixe</span></div>
+      <div class="av-item" onclick="pickAv(this,'🤴')"><span class="av-item-emoji">🤴</span><span class="av-item-label">Prinz</span></div>
+      <div class="av-item" onclick="pickAv(this,'👸')"><span class="av-item-emoji">👸</span><span class="av-item-label">Prinzessin</span></div>
+    </div>
+
+    <!-- Name -->
+    <div class="name-section">
+      <div class="sec-label">Dein Abenteurer-Name</div>
+      <input type="text" id="playerName" class="field" placeholder="z.B. GrazHeldMax" value="Entdecker">
+    </div>
+
+  </div>
+  <div class="av-footer">
+    <button class="cta cta-gold" onclick="setupTour()">🚀 &nbsp;Tour starten!</button>
+    <button class="cta cta-ghost" onclick="go('s-friends')" style="font-size:15px">👥 &nbsp;Freunde einladen</button>
+  </div>
+</div>
+
+<!-- ════════════ SCREEN: FRIENDS (pre) ════════════ -->
+<div id="s-friends" class="screen">
+  <div class="fr-header">
+    <button class="back-btn" onclick="go('s-avatar')">←</button>
+    <div>
+      <div class="av-header-title">Gruppe</div>
+      <div class="av-header-sub">Reise gemeinsam mit Freunden</div>
+    </div>
+  </div>
+  <div class="fr-scroll">
+
+    <div class="code-card">
+      <div class="code-card-label">🎮 Euer Gruppen-Code</div>
+      <div class="code-display" id="codeDisplay">GRZ7</div>
+      <div class="code-hint">Teile diesen Code mit deinen Mitreisenden</div>
+      <button class="code-copy-btn" onclick="copyCode()">📋 &nbsp;Code kopieren</button>
+    </div>
+
+    <div class="join-card">
+      <div class="join-card-title">Gruppe beitreten</div>
+      <div class="join-row">
+        <input type="text" class="join-input" id="joinInput" placeholder="CODE" maxlength="4">
+        <button class="join-go" onclick="joinGroup()">OK</button>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-bottom:10px">In deiner Gruppe</div>
+    <div id="preFriendList"></div>
+
+  </div>
+  <div class="fr-footer">
+    <button class="cta cta-gold" onclick="go('s-avatar')">✅ &nbsp;Weiter</button>
+  </div>
+</div>
+
+<!-- ════════════ SCREEN: TOUR ════════════ -->
+<div id="s-tour" class="screen">
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="status-row1">
+      <div class="player-chip">
+        <div class="pc-avi" id="topAvi">🧙</div>
+        <span class="pc-name" id="topName">Held</span>
+      </div>
+      <div class="level-pill" id="levelPill">LVL 1</div>
+      <div class="friends-mini" onclick="openTab('tab-friends')">
+        <div class="fmini-stack" id="miniAvis"></div>
+        <span class="fmini-count" id="miniCount"></span>
+      </div>
+    </div>
+    <div class="xp-row">
+      <div class="xp-track"><div class="xp-fill" id="xpFill" style="width:0%"></div></div>
+      <div class="xp-label-t" id="xpLabel">0 XP</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tour-tabs">
+    <div class="t-tab on" onclick="openTab('tab-tour')">
+      <span class="t-tab-icon">🎯</span>
+      <span class="t-tab-label">Tour</span>
+    </div>
+    <div class="t-tab" onclick="openTab('tab-map')">
+      <span class="t-tab-icon">🗺️</span>
+      <span class="t-tab-label">Karte</span>
+    </div>
+    <div class="t-tab" onclick="openTab('tab-friends')">
+      <span class="t-tab-icon">👥</span>
+      <span class="t-tab-label">Gruppe</span>
+    </div>
+    <div class="t-tab" onclick="openTab('tab-photos')">
+      <span class="t-tab-icon">📸</span>
+      <span class="t-tab-label">Fotos</span>
+    </div>
+  </div>
+
+  <!-- Panels -->
+  <div class="panels">
+
+    <!-- TOUR panel -->
+    <div id="tab-tour" class="panel on">
+      <div class="stop-ribbon">
+        <div class="stop-ribbon-label">Deine Tour</div>
+        <div class="stop-dots" id="stopDots"></div>
+      </div>
+      <div id="stopCard" class="stop-card"></div>
+      <div class="upcoming-section">
+        <div class="upcoming-title">Als nächstes</div>
+        <div id="upcomingList"></div>
+      </div>
+    </div>
+
+    <!-- MAP panel -->
+    <div id="tab-map" class="panel">
+      <div id="mapContainer"></div>
+    </div>
+
+    <!-- FRIENDS panel -->
+    <div id="tab-friends" class="panel">
+      <div class="ft-scroll">
+        <div class="leaderboard-card">
+          <div class="lb-header">
+            <div class="lb-title">🏆 Rangliste</div>
+            <div class="lb-code" id="tourCode">GRZ7</div>
+          </div>
+          <div id="lbRows"></div>
+        </div>
+        <div class="add-friend-card">
+          <div class="afc-title">Freund hinzufügen</div>
+          <div class="join-row">
+            <input type="text" class="join-input" id="addFriendInput" placeholder="CODE" maxlength="4">
+            <button class="join-go" onclick="addFriend()" style="background:var(--green);color:#000">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHOTOS panel -->
+    <div id="tab-photos" class="panel">
+      <div class="photos-scroll">
+        <div id="photoGrid" class="photo-grid"></div>
+        <div id="noPhotos" class="no-photos">
+          <span class="no-photos-icon">📷</span>
+          <div class="no-photos-text">Noch keine Fotos!<br>Löse Challenges und<br>schieß Beweisfotos 🎯</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════ SCREEN: COMPLETE ════════════ -->
+<div id="s-complete" class="screen">
+  <div class="complete-scroll">
+    <div class="complete-hero">
+      <div class="complete-stars"></div>
+      <span class="trophy-wrap">🏆</span>
+      <div class="complete-title">Tour geschafft!</div>
+      <div class="complete-sub">Du hast Graz wie ein Profi erkundet!</div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-num" id="finXp">0</div><div class="stat-lbl">XP</div></div>
+        <div class="stat-box"><div class="stat-num" id="finStops">0</div><div class="stat-lbl">Stops</div></div>
+        <div class="stat-box"><div class="stat-num" id="finPhotos">0</div><div class="stat-lbl">Fotos</div></div>
+      </div>
+    </div>
+
+    <div class="memory-reel">
+      <div class="reel-title">🎬 Dein Erinnerungs-Video</div>
+      <canvas id="memCanvas" width="360" height="240"></canvas>
+      <div class="reel-controls">
+        <button class="reel-play" onclick="playReel()">▶ Abspielen</button>
+        <button class="reel-save" onclick="saveReel()">⬇ Speichern</button>
+      </div>
+      <div class="filmstrip" id="filmstrip"></div>
+    </div>
+
+    <div class="complete-actions">
+      <button class="cta cta-gold" onclick="location.reload()">🔄 &nbsp;Neue Tour starten</button>
+      <button class="cta cta-ghost">📤 &nbsp;Tour teilen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ CAMERA ════════════ -->
+<div class="cam-overlay" id="camOverlay">
+  <video class="cam-video" id="camVideo" autoplay playsinline muted></video>
+  <canvas class="cam-canvas" id="camCanvas"></canvas>
+  <div class="cam-fx-strip">
+    <button class="fx-btn on" onclick="setFx('normal',this)">Normal</button>
+    <button class="fx-btn" onclick="setFx('comic',this)">🎨 Comic</button>
+    <button class="fx-btn" onclick="setFx('vintage',this)">📷 Vintage</button>
+    <button class="fx-btn" onclick="setFx('vivid',this)">✨ Vivid</button>
+    <button class="fx-btn" onclick="setFx('bw',this)">⚫ S/W</button>
+  </div>
+  <div class="cam-controls">
+    <button class="cam-side-btn" onclick="closeCamera()">✕</button>
+    <button class="cam-shutter" onclick="shoot()"></button>
+    <button class="cam-side-btn" onclick="flipCam()">🔄</button>
+  </div>
+</div>
+
+<!-- ════════════ SELFIE ════════════ -->
+<div class="selfie-overlay" id="selfieOverlay">
+  <video class="selfie-video" id="selfieVid" autoplay playsinline muted></video>
+  <canvas class="selfie-canvas" id="selfieCanv"></canvas>
+  <div class="selfie-label">Comic-Selfie machen ✨</div>
+  <div class="selfie-fx-strip">
+    <button class="fx-btn on" onclick="setSfx('comic',this)">🎨 Comic</button>
+    <button class="fx-btn" onclick="setSfx('cartoon',this)">🖍 Cartoon</button>
+    <button class="fx-btn" onclick="setSfx('pixel',this)">👾 Pixel</button>
+    <button class="fx-btn" onclick="setSfx('normal',this)">📷 Normal</button>
+  </div>
+  <div class="selfie-controls">
+    <button class="cam-side-btn" onclick="closeSelfie()">✕</button>
+    <button class="selfie-shutter" onclick="snapSelfie()"></button>
+    <button class="cam-side-btn" onclick="flipSelfie()">🔄</button>
+  </div>
+</div>
+
+<!-- ════════════ OVERLAYS ════════════ -->
+<div class="toast" id="toast"></div>
+<div class="celebration" id="celeb"><div class="celeb-text" id="celebTxt"></div></div>
+<div class="flash" id="flash"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  STOPS DATA
+// ══════════════════════════════════════════════════
+const STOPS = [
+  {
+    id:0,type:'sight',emoji:'🏰',name:'Schlossberg & Uhrturm',
+    lat:47.0723,lng:15.4393,
+    bg:'linear-gradient(135deg,#1A1A2E,#2D1B69)',
+    img:'https://cdn.pixabay.com/photo/2016/07/07/17/21/schlossberg-1502838_1280.jpg',
+    history:`Der Schlossberg ist 473 Meter hoch und der grüne Hausberg mitten in der Stadt — einmalig, denn die meisten Städte haben ihren Berg vor der Stadt, nicht drin. 😄 Hier stand eine Festung die NIE erobert wurde — Guinness Buch der Rekorde! Selbst Napoleon scheiterte 1809 und musste tricksen: Er besetzte Wien und drohte es zu zerstören. Die Grazer kapitulierten — kauften aber den Uhrturm frei damit er nicht gesprengt wurde.\n\nDer Uhrturm stammt aus dem 13. Jahrhundert und hat einen kuriosen Fehler: Der große Zeiger zeigt die Stunden, der kleine die Minuten — genau andersherum! Der Minutenzeiger kam erst 1712 dazu — und da wollte man ihn nicht größer machen. Ergebnis: totale Verwirrung bei Touristen seit 300 Jahren! 🕐`,
+    challenge:'Foto mit dem Uhrturm im Hintergrund! Erkläre deiner Gruppe das Geheimnis der vertauschten Zeiger.',
+    reward:'+150 XP · Zeitreisender-Badge ⌛',xp:150,
+    nextHint:'Geh den Kriegssteig hinunter (260 Stufen — geht schnell bergab!) oder nimm die Schlossbergbahn. Unten wartet der Biergarten direkt beim Ausgang. 🍺\n\nAber zuerst: Löse die Schnitzeljagd-Frage!',
+    nextQuestion:'🐕 Unterhalb des Uhrturms sitzt auf einem Mauervorsprung eine steinerne Figur. Was für ein Tier ist es?',
+    nextAnswer:'hund',
+    nextTransit:null,
+  },
+  {
+    id:1,type:'food',emoji:'🍺',name:'Biergarten Schlossberg',
+    lat:47.0725,lng:15.4388,
+    bg:'linear-gradient(135deg,#7C2D12,#451A03)',
+    img:'https://cdn.pixabay.com/photo/2019/09/12/10/14/beer-4471605_1280.jpg',
+    history:`Willkommen in einer der schönsten Biergarten-Locations Europas! 🎉 360°-Blick über Graz und die roten Ziegeldächer der Altstadt.\n\nDer Glockenturm nebenan trägt den Spitznamen "Liesl" — niemand weiß genau woher der Name kommt. Vielleicht von einer früheren Elisabethkapelle, vielleicht vom Wort "Verlies". Die Grazer nennen einfach alles liebevoll beim Vornamen. 😄 Die Glocke wiegt 4.500 kg und wird jeden Mittag geläutet!`,
+    challenge:'Bestellt ein steirisches Getränk und macht ein Prost-Foto mit dem Graz-Panorama im Hintergrund!',
+    reward:'+80 XP · Schlemmer-Badge 🍻',xp:80,
+    nextHint:'Geh den Schlossberghang Richtung Altstadt hinunter. Nach ca. 8 Minuten durch die Burggasse erreichst du den Grazer Dom.\n\nAber zuerst: Beantworte die Frage!',
+    nextQuestion:'🔔 Wie heißt die berühmte Glocke des Schlossberg-Glockenturms? (Ein Frauenname!)',
+    nextAnswer:'liesl',
+    nextTransit:null,
+  },
+  {
+    id:2,type:'sight',emoji:'⛪',name:'Grazer Dom & Mausoleum',
+    lat:47.0702,lng:15.4384,
+    bg:'linear-gradient(135deg,#14532D,#052E13)',
+    img:'https://cdn.pixabay.com/photo/2016/11/21/15/09/graz-1846668_1280.jpg',
+    history:`Der Grazer Dom wurde 1462–1563 als Hofkirche der Habsburger erbaut. Drinnen gibt es die berühmte Landplagendarstellung — ein Gemälde das Pest, Heuschrecken und Türkeneinfälle zeigt. Die mittelalterliche Version von "Was kann noch alles schiefgehen?" 😅\n\nDas angrenzende Mausoleum ist die letzte Ruhestätte von Kaiser Ferdinand II. Gebaut 1614–1638 mitten im 30-jährigen Krieg — Ferdinand ließ sich buchstäblich sein Grab bauen während Europa brannte. Es gilt als eines der bedeutendsten Frühbarockgebäude Österreichs. ⛪`,
+    challenge:'Findet die Landplagendarstellung im Dom — Pest, Heuschrecken, Türken. Foto davor UND vor dem goldenen Mausoleum!',
+    reward:'+130 XP · Kunstkenner-Badge 🎨',xp:130,
+    nextHint:'Direkt gegenüber dem Dom siehst du den Eingang zur Grazer Burg. Geh in den Innenhof — die Doppelwendeltreppe liegt links. Nur 3 Minuten!\n\nAber zuerst: Finde die Antwort!',
+    nextQuestion:'🐆 Am Eingang der Grazer Burg sind Wappen zu sehen. Welches Tier ziert das steirische Landeswappen? (Kein Löwe — ein anderes Raubtier!)',
+    nextAnswer:'panther',
+    nextTransit:null,
+  },
+  {
+    id:3,type:'sight',emoji:'🌀',name:'Doppelwendeltreppe',
+    lat:47.0708,lng:15.4380,
+    bg:'linear-gradient(135deg,#2E1065,#1E0758)',
+    img:'https://cdn.pixabay.com/photo/2017/08/30/09/48/spiral-staircase-2695469_1280.jpg',
+    history:`Architekturwunder von 1499! Zwei vollständig getrennte Wendeltreppen die sich spiralförmig umeinander wickeln — ohne sich jemals zu berühren. Zwei Menschen können gleichzeitig hinauf- und hinuntergehen ohne sich zu begegnen.\n\nDas war kein Spaß: Dienstboten und Adelige sollten getrennte Wege gehen — der Kaiser musste dem Koch nicht "Guten Morgen" sagen. 😄 Bis heute weiß niemand wer der Architekt war. Die Treppe ist einfach da — perfekt, geheimnisvoll, seit 525 Jahren!`,
+    challenge:'Foto von oben nach unten durch die Wendeltreppe — so schwindelerregend wie möglich! Zählt die Stufen einer Seite.',
+    reward:'+120 XP · Architekt-Badge 🌀',xp:120,
+    nextHint:'Verlasse die Grazer Burg und biege links in die Herrengasse. Nach 3 Minuten findest du links das Landhaus mit dem Zeughaus dahinter.\n\nVor dem Weitergehen: Beantworte diese Frage!',
+    nextQuestion:'🏛️ In der Herrengasse gibt es eine berühmte Treffpunkt-Uhr. Wie heißt sie? (Schau an den Hausfassaden — der Name steht dran!)',
+    nextAnswer:'weikhard',
+    nextTransit:null,
+  },
+  {
+    id:4,type:'sight',emoji:'⚔️',name:'Landeszeughaus',
+    lat:47.0715,lng:15.4369,
+    bg:'linear-gradient(135deg,#7F1D1D,#3B0000)',
+    img:'https://cdn.pixabay.com/photo/2016/11/29/09/16/armour-1868591_1280.jpg',
+    history:`Das weltgrößte historische Waffenlager — Guinness Buch der Rekorde! 🏆 Über 32.000 Rüstungen, Helme, Schwerter aus dem 16. und 17. Jahrhundert.\n\nGebaut 1642–1644 als Reaktion auf die osmanische Bedrohung. Die Steiermark war damals das Schutzschild Europas gegen die Türken. Als Napoleon 1809 Graz besetzte versuchte er das Zeughaus zu plündern — scheiterte aber am Gewicht der Ausrüstung. Danke Napoleon! 💪😂 Alle Waffen hängen noch an den originalen Haken — genau so wie seit 400 Jahren.`,
+    challenge:'Findet die beeindruckendste Rüstung — Foto als würdet ihr sie tragen! Wer hat die dramatischste Pose?',
+    reward:'+140 XP · Ritter-Badge ⚔️',xp:140,
+    nextHint:'Verlasse das Zeughaus und gehe durch die Schmiedgasse links daneben. Nach 2 Minuten hörst du vielleicht das Glockenspiel: täglich 11, 15 und 18 Uhr!\n\nSchnitzeljagd zuerst!',
+    nextQuestion:'⚔️ Für welche Bedrohung wurde das Landeszeughaus hauptsächlich gebaut? Welches Volk bedrohte die Steiermark damals?',
+    nextAnswer:'osmanen',
+    nextTransit:null,
+  },
+  {
+    id:5,type:'food',emoji:'🎶',name:'Glockenspielplatz Café',
+    lat:47.0717,lng:15.4365,
+    bg:'linear-gradient(135deg,#7C2D12,#451A03)',
+    img:'https://cdn.pixabay.com/photo/2016/11/29/08/54/aroma-1868926_1280.jpg',
+    history:`Das Glockenspiel ist eigentlich ein 120 Jahre alter Werbegag! 😄 Spirituosenhändler Gottfried Maurer ließ es 1893 einbauen um Kundschaft zu locken.\n\nDreimal täglich tanzen zwei Trachtenfiguren zur Musik. Am Ende prostet der Junge den Zuschauern zu — als würde er sagen "Na, willst du ein Gläschen?" 🍷 Nach Maurers Tod 1929 vermachte er das Glockenspiel der Stadt mit der Bedingung es weiterzubetreiben. Nächste Vorstellung: 11, 15 oder 18 Uhr!`,
+    challenge:'Falls das Glockenspiel bald spielt — filmt die tanzenden Figuren! Sonst: Foto vom Haus. Kaffee & Kuchen ist Pflicht! ☕',
+    reward:'+90 XP · Genießer-Badge ☕',xp:90,
+    nextHint:'Vom Glockenspielplatz geradeaus durch die Herrengasse. Nach 4 Minuten der Hauptplatz mit dem großen Brunnen in der Mitte.\n\nVorher: Schnitzeljagd lösen!',
+    nextQuestion:'🎵 Wie oft täglich spielen die tanzenden Figuren am Glockenspiel? (Zahl eingeben)',
+    nextAnswer:'3',
+    nextTransit:null,
+  },
+  {
+    id:6,type:'sight',emoji:'🏛️',name:'Hauptplatz & Herrengasse',
+    lat:47.0705,lng:15.4380,
+    bg:'linear-gradient(135deg,#1E3A5F,#0C1F40)',
+    img:'https://cdn.pixabay.com/photo/2016/09/06/13/58/graz-1649186_1280.jpg',
+    history:`Der Hauptplatz existiert seit dem 12. Jahrhundert — älter als so manche Staaten! 😄 Im Zentrum der Erzherzog-Johann-Brunnen von 1878 mit vier Figuren die vier Flüsse der Steiermark symbolisieren: Mur, Enns, Drau und Sann.\n\nErzherzog Johann ist der beliebteste Habsburger der Steiermark. Er heiratete eine normale Bürgerin — ein ungeheuerlicher Skandal für einen Habsburger! Er gründete das Joanneum Museum und die Steirer liebten ihn dafür. Seit 1999 ist die Altstadt UNESCO-Weltkulturerbe. 🎭`,
+    challenge:'Findet alle vier Fluss-Figuren am Brunnen und fotografiert jede. Bonus: Wer errät ohne Googeln welche Figur welchen Fluss darstellt?',
+    reward:'+100 XP · Historiker-Badge 📚',xp:100,
+    nextHint:'Vom Hauptplatz zur Mur — folge dem Schild Kunsthaus oder frag: "Wo ist der Friendly Alien?" Ca. 6 Minuten über die Keplerbrücke.\n\nSchnitzeljagd zuerst!',
+    nextQuestion:'🏛️ Der Erzherzog-Johann-Brunnen hat vier Figuren die Flüsse darstellen. Welcher Fluss fließt direkt durch Graz?',
+    nextAnswer:'mur',
+    nextTransit:null,
+  },
+  {
+    id:7,type:'sight',emoji:'👽',name:'Kunsthaus – Friendly Alien',
+    lat:47.0712,lng:15.4345,
+    bg:'linear-gradient(135deg,#00369E,#001A4D)',
+    img:'https://cdn.pixabay.com/photo/2014/12/08/12/00/graz-560884_1280.jpg',
+    history:`Der "Friendly Alien" ist das provokanteste Gebäude der Grazer Stadtgeschichte! 😄 Als 2003 das Kunsthaus zwischen historischen Barockfassaden gebaut wurde war der Aufschrei groß. Heute lieben es alle.\n\nDas Gebäude besteht aus über 1.000 blauen Acrylglaselementen und sieht von jeder Seite anders aus. Die BIX-Fassade kann abends über 900 Leuchtelemente als Projektionsfläche nutzen. Das Café im letzten Stock hat den besten Ausblick auf den Schlossberg! 👽`,
+    challenge:'Fotografiert das Kunsthaus aus mindestens 3 verschiedenen Winkeln. Welcher Winkel ist am spektakulärsten?',
+    reward:'+120 XP · Kunstliebhaber-Badge 🎭',xp:120,
+    nextHint:'Die Murinsel liegt direkt neben dem Kunsthaus — nur 3 Minuten zu Fuß! Gehe Richtung Mur flussaufwärts. 🐚\n\nVorher: Schnitzeljagd lösen!',
+    nextQuestion:'👽 In welchem Jahr wurde das Kunsthaus Graz eröffnet? (Es war das Kulturhauptstadtjahr von Graz!)',
+    nextAnswer:'2003',
+    nextTransit:null,
+  },
+  {
+    id:8,type:'sight',emoji:'🐚',name:'Murinsel',
+    lat:47.0720,lng:15.4342,
+    bg:'linear-gradient(135deg,#0C4A6E,#023252)',
+    img:'https://cdn.pixabay.com/photo/2016/11/21/15/32/graz-1846673_1280.jpg',
+    history:`170 Tonnen Stahl und Glas schwimmen mitten in der Mur! 😄 Die Murinsel ist 50 Meter lang, 20 Meter breit — 2003 vom New Yorker Künstler Vito Acconci für das Kulturhauptstadtjahr entworfen.\n\nUrsprünglich nur temporär geplant — aber Graz mochte sie so sehr dass sie geblieben ist. Sie ist ein schwimmender luftgefüllter Hohlkörper, über zwei elegante Fußgängerbrücken erreichbar. Drinnen: Café, Amphitheater und Shop. Der Blick auf Schlossberg und Kunsthaus gleichzeitig ist unschlagbar! 🌊`,
+    challenge:'Überquert die Murinsel komplett. Foto von der Mitte aus flussaufwärts UND flussabwärts — wie viele Brücken seht ihr?',
+    reward:'+110 XP · Brückenbauer-Badge 🌊',xp:110,
+    nextHint:'Zeit für steirische Kulinarik! Zurück in die Altstadt, ca. 5 Min. Sporgasse oder Mehlplatz. Wenn Kürbiskernöl auf der Karte steht bist du richtig! 🥗\n\nVorher — Schnitzeljagd!',
+    nextQuestion:'🌊 Wie schwer ist die Murinsel? (In Tonnen — eine dreistellige Zahl!)',
+    nextAnswer:'170',
+    nextTransit:null,
+  },
+  {
+    id:9,type:'food',emoji:'🥩',name:'Steirisches Abendessen',
+    lat:47.0703,lng:15.4372,
+    bg:'linear-gradient(135deg,#7C2D12,#451A03)',
+    img:'https://cdn.pixabay.com/photo/2017/01/26/02/06/platter-2009590_1280.jpg',
+    history:`Willkommen in der GenussHauptstadt! 🍽️ Graz bekam 2008 offiziell den Titel "Genusshauptstadt Österreichs".\n\nDie steirische Küche ist einzigartig durch Kürbiskernöl — das dunkle fast schwarze Öl gilt als "Steirisches Schwarzgold". Es schmeckt auf Salaten, Suppen und sogar auf Vanilleeis! Warnung: Kürbiskernöl macht permanente Flecken auf heller Kleidung. Bib anlegen! 😄 Typische Gerichte: Backhendl, Steirisches Wurzelfleisch, Verhackerts.`,
+    challenge:'Bestellt UNBEDINGT ein Gericht mit echtem steirischen Kürbiskernöl. Kunstvolles Food-Foto vor dem Essen!',
+    reward:'+100 XP · Steirerherz-Badge 🧡',xp:100,
+    nextHint:'Zum Finale: Schloss Eggenberg! Ihr braucht die Straßenbahn Linie 1 Richtung Eggenberg. Abfahrt am Jakominiplatz. Fahrtzeit: ca. 15 Min. Haltestelle: Schloss Eggenberg.\n\nVorher aber: Schnitzeljagd lösen!',
+    nextQuestion:'🛢️ Wie heißt das berühmte dunkle Öl aus der Steiermark? (Ein Wort — typisches regionales Lebensmittel!)',
+    nextAnswer:'kürbiskernöl',
+    nextTransit:'🚌 Straßenbahn Linie 1 → Haltestelle "Schloss Eggenberg" (15 Min.)',
+  },
+  {
+    id:10,type:'sight',emoji:'🏯',name:'Schloss Eggenberg',
+    lat:47.0709,lng:15.3984,
+    bg:'linear-gradient(135deg,#14532D,#052E13)',
+    img:'https://cdn.pixabay.com/photo/2016/07/15/08/05/schloss-eggenberg-1518839_1280.jpg',
+    history:`Das Finale! Schloss Eggenberg ist die architektonische Darstellung des Universums — wirklich kein Marketing! 😄 Fürst Hans Ulrich von Eggenberg baute es 1625 nach einem kosmischen Plan: 365 Fenster (Tage im Jahr), 24 Prunkräume (Stunden am Tag), 4 Tortürme (Jahreszeiten).\n\nDer Planetensaal zeigt alle 7 damals bekannten Himmelskörper. Seit 2010 ist Schloss Eggenberg UNESCO-Weltkulturerbe. Im Schlosspark laufen freilaufende Pfauen herum die keine Angst vor Menschen haben. Selfie-Chance! 🦚`,
+    challenge:'Zählt die Fenster einer ganzen Fassade — stimmt es mit 365 überein? Panoramafoto UND Selfie mit einem Schlosspfau!',
+    reward:'+200 XP · Welterbe-Champion-Badge 👑🏆',xp:200,
+    nextHint:null,
+    nextQuestion:null,
+    nextAnswer:null,
+    nextTransit:null,
+  },
+];
+const MAX_XP = STOPS.reduce((a,s)=>a+s.xp,0);
+
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+const G = {
+  name:'Entdecker', avatar:'🧙', selfie:null, bitmojiStyle:'comic',
+  tourMode:'full',
+  cur:0, done:[], xp:0,
+  photos:[],
+  friends:[
+    {name:'Anna',avi:'🧝',xp:320,stop:3},
+    {name:'Marco',avi:'🥷',xp:150,stop:1},
+  ],
+  code: 'GRZ'+(Math.floor(Math.random()*9)+1),
+  camFace:'environment', camStream:null, camFx:'normal',
+  sfxFace:'user', sfxStream:null, sfxFx:'comic',
+  camStopId:null,
+  reelFrames:[], reelIdx:0, reelTimer:null, reelPlaying:false,
+};
+
+// Tour mode filters
+const TOUR_FILTERS = {
+  full: null,
+  sight: [0,2,3,4,6,7,8,10],
+  food:  [0,1,5,6,9,10],
+};
+function getActiveStops(){
+  const ids=TOUR_FILTERS[G.tourMode];
+  return ids?STOPS.filter(s=>ids.includes(s.id)):STOPS;
+}
+
+// ══════════════════════════════════════════════════
+//  ONBOARDING
+// ══════════════════════════════════════════════════
+let obCur=0;
+function obNext(){
+  const slides=document.querySelectorAll('.ob-slide');
+  const dots=document.querySelectorAll('.ob-dot');
+  slides[obCur].classList.remove('active');
+  dots[obCur].classList.remove('active');
+  obCur++;
+  if(obCur>=slides.length){go('s-tourtype');obCur=0;return;}
+  slides[obCur].classList.add('active');
+  dots[obCur].classList.add('active');
+  if(obCur===slides.length-1) document.getElementById('obNext').textContent='Los geht\'s! 🚀';
+}
+
+// ══════════════════════════════════════════════════
+//  TOUR TYPE
+// ══════════════════════════════════════════════════
+function selectTourType(mode,el){
+  G.tourMode=mode;
+  document.querySelectorAll('.tt-card').forEach(c=>c.classList.remove('sel'));
+  document.querySelectorAll('.tt-check').forEach(c=>c.textContent='');
+  el.classList.add('sel');
+  document.getElementById('check-'+mode).textContent='✓';
+}
+
+// ══════════════════════════════════════════════════
+//  BITMOJI
+// ══════════════════════════════════════════════════
+function setBitmojiStyle(style,el){
+  G.bitmojiStyle=style;
+  document.querySelectorAll('.bm-style-opt').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+  if(G.selfie) generateBitmoji();
+}
+function regenerateBitmoji(){ if(G.selfie) generateBitmoji(); }
+
+async function generateBitmoji(){
+  const canvas=document.getElementById('bitmojiCanvas');
+  canvas.style.display='block';
+  document.getElementById('selfieImg').style.display='none';
+  const ctx=canvas.getContext('2d');
+  canvas.width=200;canvas.height=200;
+  ctx.fillStyle='#1E1E2A';ctx.fillRect(0,0,200,200);
+  ctx.font='44px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('🎨',100,100);
+
+  try{
+    const base64=G.selfie.split(',')[1];
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:500,
+        system:'Analysiere das Selfie. Antworte NUR mit validem JSON ohne Markdown: {"skinTone":"#hex","hairColor":"#hex","hairStyle":"short|medium|long|curly|bald","eyeColor":"#hex","hasGlasses":bool,"hasBeard":bool,"mood":"happy|cool|excited","accessory":"none|hat|cap|crown"}',
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:base64}},
+          {type:'text',text:'Gib mir den Avatar-JSON für dieses Gesicht.'}
+        ]}]
+      })
+    });
+    const d=await res.json();
+    const txt=d.content?.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
+    let desc=null;
+    try{desc=JSON.parse(txt);}catch{}
+    drawBitmoji(canvas,desc,G.bitmojiStyle);
+  }catch{
+    drawBitmoji(canvas,null,G.bitmojiStyle);
+  }
+  G.selfie=canvas.toDataURL('image/png');
+  document.getElementById('selfieImg').style.display='none';
+}
+
+function drawBitmoji(canvas,d,style){
+  const ctx=canvas.getContext('2d');
+  canvas.width=200;canvas.height=200;
+  const skin=d?.skinTone||'#FDBCB4';
+  const hair=d?.hairColor||'#4A2C0A';
+  const hs=d?.hairStyle||'medium';
+  const eyes=d?.eyeColor||'#4A7C59';
+  const glasses=d?.hasGlasses||false;
+  const beard=d?.hasBeard||false;
+  const mood=d?.mood||'happy';
+  const acc=d?.accessory||'none';
+
+  // BG circle
+  const bgC={comic:'#FFD438',anime:'#C084FC',pixel:'#0F172A',sketch:'#F8FAFC'};
+  ctx.beginPath();ctx.arc(100,100,96,0,Math.PI*2);
+  ctx.fillStyle=bgC[style]||'#FFD438';ctx.fill();
+  ctx.strokeStyle='#00000033';ctx.lineWidth=2;ctx.stroke();
+
+  const lw=style==='comic'?2.5:style==='sketch'?1.5:style==='pixel'?0:1;
+  const oc='#1A0A00';
+
+  function circle(x,y,r,fill){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();if(lw){ctx.strokeStyle=oc;ctx.lineWidth=lw;ctx.stroke();}}
+  function ellipse(x,y,rx,ry,fill){ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();if(lw){ctx.strokeStyle=oc;ctx.lineWidth=lw;ctx.stroke();}}
+  function rect(x,y,w,h,r,fill){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(lw){ctx.strokeStyle=oc;ctx.lineWidth=lw;ctx.stroke();}}
+
+  // Body / shirt
+  const shirtC=style==='anime'?'#818CF8':style==='pixel'?'#22D3EE':'#60A5FA';
+  rect(56,148,88,60,10,shirtC);
+
+  // Neck
+  ellipse(100,138,13,14,skin);
+
+  // Hair back
+  if(hs!=='bald'){
+    ctx.beginPath();
+    if(hs==='curly'){ctx.arc(100,88,38,Math.PI,0);for(let i=0;i<7;i++){ctx.arc(62+i*12,88,7,0,Math.PI*2);}}
+    else{ctx.ellipse(100,hs==='short'?90:86,36,hs==='long'?46:hs==='short'?20:32,0,Math.PI,0);}
+    ctx.fillStyle=hair;ctx.fill();if(lw){ctx.strokeStyle=oc;ctx.lineWidth=lw;ctx.stroke();}
+  }
+
+  // Head
+  ellipse(100,110,36,40,skin);
+
+  // Ears
+  circle(64,112,9,skin);circle(136,112,9,skin);
+
+  // Hair front
+  if(hs!=='bald'){
+    ctx.beginPath();ctx.ellipse(100,74,34,hs==='short'?12:16,0,Math.PI,0);
+    ctx.fillStyle=hair;ctx.fill();if(lw){ctx.strokeStyle=oc;ctx.lineWidth=lw;ctx.stroke();}
+  }
+
+  // Eyes
+  if(style==='anime'){
+    [[82,105],[118,105]].forEach(([ex,ey])=>{
+      ellipse(ex,ey,9,12,'#fff');
+      ellipse(ex,ey+1,6,9,eyes);
+      ellipse(ex,ey,3,5,'#111');
+      circle(ex+3,ey-3,2,'#fff');
+    });
+  } else {
+    [[82,108],[118,108]].forEach(([ex,ey])=>{
+      ellipse(ex,ey,8,7,'#fff');
+      circle(ex,ey,5,eyes);
+      circle(ex,ey,3,'#111');
+      circle(ex+2,ey-2,1.5,'#fff');
+    });
+  }
+
+  // Eyebrows
+  ctx.strokeStyle=hair;ctx.lineWidth=style==='anime'?3:2;ctx.lineCap='round';
+  const by=mood==='excited'?96:98;
+  [[74,90],[110,126]].forEach(([x1,x2])=>{
+    ctx.beginPath();ctx.moveTo(x1,by);
+    ctx.quadraticCurveTo((x1+x2)/2,mood==='happy'?by-3:by+2,x2,by);ctx.stroke();
+  });
+
+  // Nose
+  ctx.strokeStyle='#C0876A';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(100,114);ctx.lineTo(96,122);ctx.lineTo(104,122);ctx.stroke();
+
+  // Mouth
+  ctx.strokeStyle='#C0392B';ctx.lineWidth=2.5;ctx.lineCap='round';
+  ctx.beginPath();
+  if(mood==='happy'||mood==='excited'){ctx.arc(100,126,9,0.1*Math.PI,0.9*Math.PI);}
+  else{ctx.moveTo(91,128);ctx.lineTo(109,128);}
+  ctx.stroke();
+
+  // Beard
+  if(beard){
+    ctx.beginPath();ctx.ellipse(100,136,18,11,0,0,Math.PI);
+    ctx.fillStyle=hair;ctx.fill();if(lw){ctx.strokeStyle=oc;ctx.lineWidth=1;ctx.stroke();}
+  }
+
+  // Glasses
+  if(glasses){
+    ctx.strokeStyle='#374151';ctx.lineWidth=2;
+    [[82,108],[118,108]].forEach(([ex,ey])=>{
+      ctx.beginPath();ctx.roundRect(ex-12,ey-9,24,18,4);
+      ctx.fillStyle='rgba(147,210,255,.2)';ctx.fill();ctx.stroke();
+    });
+    ctx.beginPath();ctx.moveTo(94,108);ctx.lineTo(106,108);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(70,104);ctx.lineTo(60,102);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(130,104);ctx.lineTo(140,102);ctx.stroke();
+  }
+
+  // Accessory
+  if(acc==='crown'){
+    ctx.fillStyle='#FFD438';
+    ctx.beginPath();ctx.moveTo(64,76);ctx.lineTo(70,60);ctx.lineTo(82,70);ctx.lineTo(94,54);ctx.lineTo(100,64);ctx.lineTo(106,54);ctx.lineTo(118,70);ctx.lineTo(130,60);ctx.lineTo(136,76);ctx.closePath();
+    ctx.fill();ctx.strokeStyle='#F59E0B';ctx.lineWidth=1.5;ctx.stroke();
+  } else if(acc==='cap'||acc==='hat'){
+    ctx.fillStyle=acc==='cap'?'#DC2626':'#1E1B4B';
+    rect(66,62,68,22,4,acc==='cap'?'#DC2626':'#1E1B4B');
+    ctx.beginPath();ctx.ellipse(100,84,42,11,0,Math.PI,0);ctx.fillStyle=acc==='cap'?'#B91C1C':'#312E81';ctx.fill();
+    if(lw){ctx.strokeStyle=oc;ctx.lineWidth=lw;ctx.stroke();}
+  }
+
+  // Pixel quantize
+  if(style==='pixel'){
+    const sz=10,w=canvas.width,h=canvas.height;
+    const id=ctx.getImageData(0,0,w,h);
+    ctx.clearRect(0,0,w,h);
+    for(let y=0;y<h;y+=sz) for(let x=0;x<w;x+=sz){
+      const i=(y*w+x)*4;
+      ctx.fillStyle=`rgba(${id.data[i]},${id.data[i+1]},${id.data[i+2]},${id.data[i+3]/255})`;
+      ctx.fillRect(x,y,sz,sz);
+    }
+  }
+
+  // Sketch texture
+  if(style==='sketch'){
+    ctx.globalAlpha=.1;
+    for(let i=0;i<50;i++){
+      ctx.strokeStyle='#111';ctx.lineWidth=.4;
+      ctx.beginPath();ctx.moveTo(Math.random()*200,Math.random()*200);
+      ctx.lineTo(Math.random()*200,Math.random()*200);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  NAV
+// ══════════════════════════════════════════════════
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='s-friends') renderPreFriends();
+}
+
+function openTab(id){
+  document.querySelectorAll('.t-tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  const idx=['tab-tour','tab-map','tab-friends','tab-photos'].indexOf(id);
+  document.querySelectorAll('.t-tab')[idx]?.classList.add('on');
+  if(id==='tab-map') setTimeout(initMap,80);
+  if(id==='tab-friends') renderLeaderboard();
+  if(id==='tab-photos') renderPhotos();
+}
+
+// ══════════════════════════════════════════════════
+//  AVATAR
+// ══════════════════════════════════════════════════
+function pickAv(el,emoji){
+  document.querySelectorAll('.av-item').forEach(i=>i.classList.remove('sel'));
+  el.classList.add('sel');
+  G.avatar=emoji; G.selfie=null;
+  document.getElementById('selfieImg').style.display='none';
+  document.getElementById('selfieEmoji').style.display='block';
+}
+
+function setupTour(){
+  G.name=document.getElementById('playerName').value||'Entdecker';
+  // top bar
+  const avi=document.getElementById('topAvi');
+  if(G.selfie){avi.innerHTML=`<img src="${G.selfie}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;}
+  else{avi.textContent=G.avatar;}
+  document.getElementById('topName').textContent=G.name;
+  document.getElementById('tourCode').textContent=G.code;
+  renderMiniAvis();
+  go('s-tour');
+  renderTour();
+}
+
+// ══════════════════════════════════════════════════
+//  FRIENDS
+// ══════════════════════════════════════════════════
+function renderPreFriends(){
+  document.getElementById('codeDisplay').textContent=G.code;
+  document.getElementById('preFriendList').innerHTML=
+    G.friends.map(f=>`
+      <div class="friend-item">
+        <div class="friend-avi">${f.avi}</div>
+        <div class="friend-info">
+          <div class="friend-name-t">${f.name}</div>
+          <div class="friend-status-t">🟢 Online · Stop ${f.stop+1}</div>
+        </div>
+        <div class="friend-xp-t">${f.xp}</div>
+      </div>`).join('');
+}
+
+function renderMiniAvis(){
+  document.getElementById('miniAvis').innerHTML=
+    G.friends.slice(0,3).map(f=>`<div class="fmini-dot">${f.avi}</div>`).join('');
+  document.getElementById('miniCount').textContent=G.friends.length+'👥';
+}
+
+function renderLeaderboard(){
+  const me={name:G.name,avi:G.avatar,selfie:G.selfie,xp:G.xp,stop:G.cur,me:true};
+  const all=[me,...G.friends].sort((a,b)=>b.xp-a.xp);
+  const medals=['🥇','🥈','🥉','4️⃣','5️⃣'];
+  document.getElementById('lbRows').innerHTML=all.map((f,i)=>`
+    <div class="lb-row">
+      <div class="lb-rank">${medals[i]||i+1}</div>
+      <div class="lb-avi">
+        ${f.me&&G.selfie?`<img src="${G.selfie}">`:(f.selfie?`<img src="${f.selfie}">`:(f.me?G.avatar:f.avi))}
+      </div>
+      <div class="lb-info">
+        <div class="lb-name">${f.me?`${G.name} (Du)`:f.name}</div>
+        <div class="lb-progress">Stop ${(f.stop||0)+1} von ${STOPS.length}</div>
+      </div>
+      <div class="lb-xp">${f.xp}</div>
+    </div>`).join('');
+}
+
+function copyCode(){
+  navigator.clipboard?.writeText(G.code).catch(()=>{});
+  toast('📋 Code kopiert: '+G.code);
+}
+function joinGroup(){
+  const v=document.getElementById('joinInput').value.trim().toUpperCase();
+  if(v.length<3){toast('⚠️ Code eingeben');return;}
+  toast('✅ Gruppe '+v+' beigetreten!');
+  document.getElementById('joinInput').value='';
+}
+function addFriend(){
+  const v=document.getElementById('addFriendInput').value.trim().toUpperCase();
+  if(v.length<3){toast('⚠️ Code eingeben');return;}
+  toast('✅ Einladung gesendet!');
+  document.getElementById('addFriendInput').value='';
+}
+
+// simulate friends moving
+setInterval(()=>{
+  G.friends.forEach(f=>{if(f.stop<G.cur&&Math.random()>.75){f.stop++;f.xp+=STOPS[f.stop]?.xp||0;}});
+},14000);
+
+// ══════════════════════════════════════════════════
+//  TOUR RENDER
+// ══════════════════════════════════════════════════
+function renderTour(){
+  renderDots();
+  renderStopCard();
+  renderUpcoming();
+  updateXp();
+}
+
+function renderDots(){
+  const active=getActiveStops();
+  const wrap=document.getElementById('stopDots');
+  wrap.innerHTML='';
+  active.forEach((s,i)=>{
+    if(i>0){const l=document.createElement('div');l.className='s-line'+(G.done.includes(s.id)?' done':'');wrap.appendChild(l);}
+    const d=document.createElement('div');
+    let cls='s-dot';
+    if(s.type==='food') cls+=' food';
+    if(G.done.includes(s.id)) cls+=' done';
+    else if(i===G.cur) cls+=' now';
+    d.className=cls;
+    d.textContent=G.done.includes(s.id)?'✓':s.emoji;
+    wrap.appendChild(d);
+  });
+}
+
+function renderStopCard(){
+  const active=getActiveStops();
+  const s=active[G.cur];
+  if(!s) return;
+  const isDone=G.done.includes(s.id);
+  const photos=G.photos.filter(p=>p.stopId===s.id);
+  const hasPhoto=photos.length>0;
+  const nextStop=active[G.cur+1];
+
+  const historyLines=s.history.split('\n').filter(l=>l.trim());
+  const preview=historyLines[0];
+  const rest=historyLines.slice(1).join('<br><br>');
+
+  document.getElementById('stopCard').innerHTML=`
+    <div class="sc-hero" style="position:relative;overflow:hidden;height:200px">
+      <img src="${s.img}" alt="${s.name}"
+        onerror="this.style.display='none';this.nextSibling.style.display='flex'"
+        style="width:100%;height:100%;object-fit:cover;display:block">
+      <div style="display:none;width:100%;height:100%;background:${s.bg};align-items:center;justify-content:center;font-size:72px">${s.emoji}</div>
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.15) 0%,rgba(0,0,0,.6) 100%)"></div>
+      <div style="position:absolute;bottom:14px;left:14px;right:14px">
+        <div style="font-family:var(--ff-title);font-size:22px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.8);line-height:1.1">${s.name}</div>
+      </div>
+      <div class="stop-num-badge">Stop ${G.cur+1}/${active.length}</div>
+      <div class="sc-type-badge ${s.type==='food'?'badge-food':'badge-sight'}">
+        ${s.type==='food'?'🍽 Kulinarik':'📍 Sightseeing'}
+      </div>
+    </div>
+    <div class="sc-body">
+      <div class="sc-meta-row">
+        <span class="pill pill-gold">⭐ +${s.xp} XP</span>
+        ${s.type==='food'?'<span class="pill" style="background:rgba(255,123,58,.15);color:var(--orange);border:1px solid rgba(255,123,58,.3)">🍽 Kulinarik</span>':'<span class="pill pill-green">📍 Sehenswürdigkeit</span>'}
+      </div>
+
+      <!-- History accordion -->
+      <div class="history-box" id="historyBox">
+        <div class="hb-header" onclick="toggleHistory()">
+          <div class="hb-icon">📖</div>
+          <div class="hb-title">Geschichte & Fun Facts</div>
+          <div class="hb-arrow" id="hbArrow">▼</div>
+        </div>
+        <div class="hb-preview" id="hbPreview">${preview}</div>
+        <div class="hb-full" id="hbFull">${rest}</div>
+      </div>
+
+      <!-- Challenge -->
+      <div class="challenge-box">
+        <div class="ch-eyebrow">🎯 Deine Challenge</div>
+        <div class="ch-text">${s.challenge}</div>
+        <div class="ch-reward">🏅 ${s.reward}</div>
+      </div>
+
+      <!-- Photo proof -->
+      <div class="photo-box ${hasPhoto?'done-state':''}" id="photoBox">
+        <span class="pb-icon">${hasPhoto?'✅':'📸'}</span>
+        <div class="pb-title">${hasPhoto?'Beweisfoto eingereicht!':'Beweisfoto erforderlich'}</div>
+        <div class="pb-sub">${hasPhoto?'Super! Jetzt Punkte einlösen.':'Mach ein Foto um die Challenge zu bestätigen'}</div>
+        ${photos.length?`<div class="pb-thumbs">${photos.map(p=>`<img class="pb-thumb" src="${p.url}">`).join('')}</div>`:''}
+        ${isDone?'':`<button class="pb-cam-btn" onclick="openCam(${G.cur})">📷 &nbsp;${hasPhoto?'Weiteres Foto':'Foto aufnehmen'}</button>`}
+      </div>
+
+      <!-- AI hint -->
+      <div class="ai-hint" id="aiHint">
+        <div class="ai-hint-label">🤖 &nbsp;KI-Guide</div>
+        <div class="ai-hint-text" id="aiHintText">…</div>
+      </div>
+
+      <!-- Actions -->
+      <div class="sc-actions">
+        <button class="hint-btn" onclick="getHint()">💡 Tipp</button>
+        <button class="arrive-btn" id="arriveBtn"
+          ${!hasPhoto&&!isDone?'disabled':''}
+          onclick="arrive()">
+          ${isDone?'✓ Weiter →':'🎯 Challenge lösen!'}
+        </button>
+      </div>
+
+      <!-- Next stop navigator (shown after completing) -->
+      ${isDone && nextStop ? `
+      <div class="next-stop-box" id="nextStopBox">
+        <div class="nsb-header">
+          <div class="nsb-icon">🗺️</div>
+          <div class="nsb-title">Auf zur nächsten Station!</div>
+        </div>
+        <div class="nsb-img-row">
+          <img src="${nextStop.img}" alt="${nextStop.name}"
+            onerror="this.style.display='none'"
+            style="width:72px;height:72px;border-radius:14px;object-fit:cover;flex-shrink:0;border:2px solid var(--border)">
+          <div>
+            <div style="font-family:var(--ff-title);font-size:17px;color:var(--white);margin-bottom:4px">${nextStop.emoji} ${nextStop.name}</div>
+            <div style="font-size:12px;color:var(--muted)">+${nextStop.xp} XP warten auf dich!</div>
+          </div>
+        </div>
+        <div class="nsb-hint">${(s.nextHint||'').replace(/\n/g,'<br>')}</div>
+        ${s.nextTransit ? `<div class="nsb-transit"><span>🚌</span><span>${s.nextTransit}</span></div>` : ''}
+
+        ${s.nextQuestion ? `
+        <div class="scavenger-box" id="scavengerBox">
+          <div class="sbox-label">🔍 Schnitzeljagd-Pflichtaufgabe</div>
+          <div class="sbox-question">${s.nextQuestion}</div>
+          <div class="sbox-input-row">
+            <input type="text" class="sbox-input" id="scavengerInput"
+              placeholder="Deine Antwort…"
+              onkeydown="if(event.key==='Enter')checkScavenger()">
+            <button class="sbox-btn" onclick="checkScavenger()">✓</button>
+          </div>
+          <div class="sbox-feedback" id="scavengerFeedback"></div>
+        </div>
+        <button class="nsb-go-btn" id="nsbGoBtn" disabled
+          onclick="G.cur++;renderTour();document.getElementById('tab-tour').scrollTo(0,0)">
+          🔒 Erst Schnitzeljagd lösen!
+        </button>` : `
+        <button class="nsb-go-btn" id="nsbGoBtn"
+          onclick="G.cur++;renderTour();document.getElementById('tab-tour').scrollTo(0,0)">
+          Los geht's! →
+        </button>`}
+      </div>` : ''}
+
+      ${isDone && !nextStop ? `
+      <div class="next-stop-box" style="text-align:center">
+        <div style="font-size:52px;margin-bottom:10px">🏆</div>
+        <div style="font-family:var(--ff-title);font-size:22px;color:var(--gold);margin-bottom:8px">Tour abgeschlossen!</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Du hast alle Stops gemeistert!</div>
+        <button class="nsb-go-btn" onclick="showComplete()">Zum Abschluss! 🎉</button>
+      </div>` : ''}
+
+    </div>`;
+}
+
+function renderUpcoming(){
+  const active=getActiveStops();
+  const next=active.slice(G.cur+1,G.cur+4);
+  document.getElementById('upcomingList').innerHTML=
+    next.length
+    ? next.map(s=>`
+        <div class="up-card">
+          <div class="up-icon">${s.emoji}</div>
+          <div class="up-info">
+            <div class="up-name">${s.name}</div>
+            <div class="up-dist">${s.type==='food'?'🍽 Kulinarik-Stop':'📍 Sehenswürdigkeit'}</div>
+          </div>
+          <div class="up-xp">+${s.xp}</div>
+        </div>`).join('')
+    : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:14px;font-weight:700">🏆 Letzter Stop — fast geschafft!</div>';
+}
+
+function updateXp(){
+  const active=getActiveStops();
+  const maxXp=active.reduce((a,s)=>a+s.xp,0);
+  const pct=(G.xp/maxXp)*100;
+  document.getElementById('xpFill').style.width=Math.min(pct,100)+'%';
+  document.getElementById('xpLabel').textContent=G.xp+' XP';
+  const lvl=Math.floor(G.xp/200)+1;
+  document.getElementById('levelPill').textContent='LVL '+lvl;
+}
+
+function renderPhotos(){
+  const grid=document.getElementById('photoGrid');
+  const none=document.getElementById('noPhotos');
+  if(!G.photos.length){grid.innerHTML='';none.style.display='block';return;}
+  none.style.display='none';
+  grid.innerHTML=G.photos.map(p=>`
+    <div class="photo-cell">
+      <img src="${p.url}" loading="lazy">
+      <div class="photo-cell-label">${p.label}</div>
+    </div>`).join('');
+}
+
+function toggleHistory(){
+  const full=document.getElementById('hbFull');
+  const arrow=document.getElementById('hbArrow');
+  const preview=document.getElementById('hbPreview');
+  if(!full) return;
+  const isOpen=full.classList.toggle('open');
+  arrow?.classList.toggle('open',isOpen);
+  if(preview) preview.style.display=isOpen?'none':'block';
+}
+
+function checkScavenger(){
+  const active=getActiveStops();
+  const s=active[G.cur];
+  if(!s.nextAnswer) return;
+  const input=document.getElementById('scavengerInput');
+  const feedback=document.getElementById('scavengerFeedback');
+  const goBtn=document.getElementById('nsbGoBtn');
+  if(!input||!feedback||!goBtn) return;
+
+  const answer=input.value.trim().toLowerCase();
+  const correct=s.nextAnswer.toLowerCase();
+
+  // fuzzy: check if correct keyword is contained in answer
+  if(answer.includes(correct) || correct.includes(answer) && answer.length>=3){
+    feedback.textContent='✅ Richtig! Sehr gut — weiter geht\'s!';
+    feedback.className='sbox-feedback ok';
+    input.disabled=true;
+    document.querySelector('.sbox-btn').disabled=true;
+    goBtn.disabled=false;
+    goBtn.textContent='Los geht\'s! →';
+    goBtn.style.background='linear-gradient(135deg,var(--green),#20B460)';
+    goBtn.style.color='#000';
+    G.xp+=20; // bonus XP for scavenger
+    updateXp();
+    spawnXpPop('+20 Bonus-XP!');
+    toast('🔍 Schnitzeljagd gelöst! +20 Bonus-XP');
+  } else {
+    feedback.textContent='❌ Nicht ganz — schau nochmal genauer hin!';
+    feedback.className='sbox-feedback err';
+    input.style.borderColor='var(--red)';
+    setTimeout(()=>{if(input) input.style.borderColor='var(--border)';},1200);
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════════
+async function arrive(){
+  const active=getActiveStops();
+  const s=active[G.cur];
+  if(!s) return;
+  if(G.done.includes(s.id)){
+    if(G.cur<active.length-1){G.cur++;renderTour();if(map)moveAvatarMarker();}
+    return;
+  }
+  G.done.push(s.id);
+  G.xp+=s.xp;
+  doConfetti();
+  showCeleb(`+${s.xp} XP!`);
+  spawnXpPop(`+${s.xp} XP`);
+  toast('🎉 '+s.name+' gemeistert!');
+  renderStopCard();
+  updateXp();
+  renderDots();
+  if(map){ refreshMapMarkers(); moveAvatarMarker(); drawRoutes(); }
+  if(G.cur===active.length-1){
+    await wait(3000);
+    showComplete();
+  }
+}
+
+async function getHint(){
+  const active=getActiveStops();
+  const s=active[G.cur];
+  const box=document.getElementById('aiHint');
+  const txt=document.getElementById('aiHintText');
+  if(!box)return;
+  box.classList.add('vis');
+  txt.innerHTML='<em style="color:var(--muted)">Guide tippt…</em>';
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:1000,
+        system:'Du bist ein enthusiastischer Stadtführer für Graz. Antworte auf Deutsch. Max 2-3 kurze Sätze. Immer einen überraschenden Fun Fact einbauen.',
+        messages:[{role:'user',content:`Spielerischer Tipp für: "${s.name}". Challenge: "${s.challenge}". Überrasche mit einem unbekannten Fun Fact!`}]
+      })
+    });
+    const d=await r.json();
+    txt.textContent=d.content?.map(c=>c.text||'').join('')||'Schau genau hin!';
+  }catch{
+    txt.textContent=`💡 Bei ${s.name} lohnt es sich die kleinen Details zu suchen — die besten Fotos entstehen aus ungewöhnlichen Winkeln!`;
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  CAMERA
+// ══════════════════════════════════════════════════
+async function openCam(stopId){
+  G.camStopId=stopId;
+  document.getElementById('camOverlay').classList.add('open');
+  await startCam();
+}
+async function startCam(){
+  try{
+    if(G.camStream)G.camStream.getTracks().forEach(t=>t.stop());
+    G.camStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:G.camFace,width:{ideal:1280},height:{ideal:720}},audio:false
+    });
+    document.getElementById('camVideo').srcObject=G.camStream;
+  }catch{
+    toast('📷 Kamera nicht verfügbar — Demo wird erstellt');
+    fakePhoto();closeCamera();
+  }
+}
+function flipCam(){G.camFace=G.camFace==='environment'?'user':'environment';startCam();}
+function setFx(fx,btn){
+  G.camFx=fx;
+  document.querySelectorAll('.cam-fx-strip .fx-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+function shoot(){
+  const vid=document.getElementById('camVideo');
+  const can=document.getElementById('camCanvas');
+  can.width=vid.videoWidth||640;can.height=vid.videoHeight||480;
+  const ctx=can.getContext('2d');
+  ctx.drawImage(vid,0,0);
+  applyFx(ctx,can.width,can.height,G.camFx);
+  // stamp
+  ctx.fillStyle='rgba(0,0,0,.6)';
+  ctx.fillRect(0,can.height-42,can.width,42);
+  ctx.fillStyle=G.camFx==='bw'?'#eee':'#FFD438';
+  ctx.font='bold 14px Nunito,sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText('📍 '+STOPS[G.camStopId||0].name,10,can.height-22);
+  ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='11px Nunito,sans-serif';
+  ctx.fillText('GrazQuest 🗺️',10,can.height-8);
+  doFlash();
+  savePhoto(can.toDataURL('image/jpeg',.85));
+}
+function fakePhoto(){
+  const can=document.createElement('canvas');
+  can.width=400;can.height=300;
+  const ctx=can.getContext('2d');
+  const s=STOPS[G.camStopId||G.cur];
+  const g=ctx.createLinearGradient(0,0,400,300);
+  const cols=s.bg.match(/#[0-9A-Fa-f]{6}/g)||['#1A1A2E','#2D6A4F'];
+  g.addColorStop(0,cols[0]);g.addColorStop(1,cols[1]||cols[0]);
+  ctx.fillStyle=g;ctx.fillRect(0,0,400,300);
+  ctx.font='100px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(s.emoji,200,140);
+  ctx.fillStyle='#fff';ctx.font='bold 18px Nunito,sans-serif';
+  ctx.fillText(s.name,200,210);
+  ctx.fillStyle='rgba(255,212,56,.8)';ctx.font='bold 13px Nunito,sans-serif';
+  ctx.fillText('GrazQuest · Demo-Foto',200,240);
+  savePhoto(can.toDataURL('image/jpeg',.85));
+}
+function applyFx(ctx,w,h,fx){
+  if(fx==='normal')return;
+  const img=ctx.getImageData(0,0,w,h);const d=img.data;
+  for(let i=0;i<d.length;i+=4){
+    let r=d[i],g=d[i+1],b=d[i+2];
+    if(fx==='comic'){r=Math.round(r/64)*64;g=Math.round(g/64)*64;b=Math.round(b/64)*64;}
+    else if(fx==='vintage'){r=Math.min(255,r*.9+50);g=Math.min(255,g*.8+30);b=Math.min(255,b*.5);}
+    else if(fx==='vivid'){const avg=(r+g+b)/3;r=Math.min(255,avg+(r-avg)*2);g=Math.min(255,avg+(g-avg)*2);b=Math.min(255,avg+(b-avg)*2);}
+    else if(fx==='bw'){const gray=.3*r+.59*g+.11*b;r=g=b=gray;}
+    d[i]=r;d[i+1]=g;d[i+2]=b;
+  }
+  ctx.putImageData(img,0,0);
+}
+function savePhoto(url){
+  const s=STOPS[G.camStopId||G.cur];
+  G.photos.push({stopId:G.camStopId||G.cur,url,label:s.name});
+  toast('📸 Foto gespeichert!');
+  closeCamera();
+  renderStopCard();
+}
+function doFlash(){
+  const f=document.getElementById('flash');
+  f.style.opacity='.85';setTimeout(()=>f.style.opacity='0',80);
+}
+function closeCamera(){
+  if(G.camStream)G.camStream.getTracks().forEach(t=>t.stop());
+  G.camStream=null;
+  document.getElementById('camOverlay').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════
+//  SELFIE
+// ══════════════════════════════════════════════════
+async function openSelfie(){
+  document.getElementById('selfieOverlay').classList.add('open');
+  await startSfx();
+}
+async function startSfx(){
+  try{
+    if(G.sfxStream)G.sfxStream.getTracks().forEach(t=>t.stop());
+    G.sfxStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:G.sfxFace},audio:false});
+    document.getElementById('selfieVid').srcObject=G.sfxStream;
+  }catch{toast('Kamera nicht verfügbar');closeSelfie();}
+}
+function flipSelfie(){G.sfxFace=G.sfxFace==='user'?'environment':'user';startSfx();}
+function setSfx(fx,btn){
+  G.sfxFx=fx;
+  document.querySelectorAll('.selfie-fx-strip .fx-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+function snapSelfie(){
+  const vid=document.getElementById('selfieVid');
+  const can=document.getElementById('selfieCanv');
+  can.width=vid.videoWidth||400;can.height=vid.videoHeight||400;
+  const ctx=can.getContext('2d');
+  if(G.sfxFace==='user'){ctx.translate(can.width,0);ctx.scale(-1,1);}
+  ctx.drawImage(vid,0,0);
+  if(G.sfxFace==='user'){ctx.setTransform(1,0,0,1,0,0);}
+  applyFx(ctx,can.width,can.height,G.sfxFx==='cartoon'?'vivid':G.sfxFx);
+  // comic border
+  if(G.sfxFx!=='normal'){
+    ctx.strokeStyle=G.sfxFx==='comic'?'#000':'#6D28D9';
+    ctx.lineWidth=5;ctx.strokeRect(3,3,can.width-6,can.height-6);
+  }
+  doFlash();
+  G.selfie=can.toDataURL('image/jpeg',.9);
+  // Show bitmoji styles panel and generate
+  document.getElementById('bitmojiStyles').style.display='block';
+  document.getElementById('selfieBtn').textContent='📸 Wiederholen';
+  document.querySelectorAll('.av-item').forEach(i=>i.classList.remove('sel'));
+  G.avatar='📸';
+  toast('🎨 Bitmoji wird erstellt…');
+  closeSelfie();
+  generateBitmoji();
+}
+function closeSelfie(){
+  if(G.sfxStream)G.sfxStream.getTracks().forEach(t=>t.stop());
+  G.sfxStream=null;
+  document.getElementById('selfieOverlay').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════
+//  MAP
+// ══════════════════════════════════════════════════
+let map=null, avatarMarker=null, stopMarkers=[], routeLines=[];
+
+function initMap(){
+  if(map){
+    map.invalidateSize();
+    refreshMapMarkers();
+    moveAvatarMarker();
+    return;
+  }
+  map=L.map('mapContainer',{zoomControl:false}).setView([47.0710,15.4375],15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© OpenStreetMap',maxZoom:19
+  }).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  refreshMapMarkers();
+  drawRoutes();
+  moveAvatarMarker();
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(p=>{
+      if(avatarMarker) avatarMarker.setLatLng([p.coords.latitude,p.coords.longitude]);
+    },{enableHighAccuracy:true});
+  }
+}
+
+async function drawRoutes(){
+  // Remove old route lines
+  routeLines.forEach(l=>l.remove());
+  routeLines=[];
+
+  for(let i=0;i<STOPS.length-1;i++){
+    const from=STOPS[i];
+    const to=STOPS[i+1];
+    const isTram=(i===9); // Stop 9→10 needs tram (Eggenberg)
+    
+    if(isTram){
+      // Draw dashed line in blue for tram route
+      const line=L.polyline([[from.lat,from.lng],[to.lat,to.lng]],{
+        color:'#38BDF8',weight:4,dashArray:'6,10',opacity:.7
+      }).addTo(map);
+      line.bindTooltip('🚌 Straßenbahn Linie 1',{permanent:false,sticky:true});
+      routeLines.push(line);
+    } else {
+      // Fetch real walking route from OSRM (free, no API key)
+      try{
+        const url=`https://router.project-osrm.org/route/v1/foot/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+        const res=await fetch(url);
+        const data=await res.json();
+        if(data.routes&&data.routes[0]){
+          const coords=data.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+          const done=G.done.includes(i);
+          const line=L.polyline(coords,{
+            color:done?'#34D87A':'#FFD438',
+            weight:4,opacity:.75,
+            dashArray:done?null:'4,8'
+          }).addTo(map);
+          const mins=Math.round(data.routes[0].duration/60);
+          line.bindTooltip(`🚶 ${mins} Min zu Fuß`,{permanent:false,sticky:true});
+          routeLines.push(line);
+        }
+      }catch{
+        // Fallback: simple straight line if OSRM fails
+        const line=L.polyline([[from.lat,from.lng],[to.lat,to.lng]],{
+          color:'rgba(255,212,56,.4)',weight:3,dashArray:'6,8'
+        }).addTo(map);
+        routeLines.push(line);
+      }
+    }
+  }
+}
+
+function refreshMapMarkers(){
+  stopMarkers.forEach(m=>m.remove());
+  stopMarkers=[];
+  STOPS.forEach((s,i)=>{
+    const done=G.done.includes(i);
+    const active=i===G.cur;
+    const color=done?'#34D87A':active?'#FFD438':s.type==='food'?'#FF7B3A':'#38BDF8';
+    const size=active?46:34;
+    const icon=L.divIcon({
+      html:`<div style="
+        background:${color};width:${size}px;height:${size}px;
+        border-radius:50%;display:flex;align-items:center;justify-content:center;
+        font-size:${active?20:15}px;border:3px solid #fff;
+        box-shadow:0 3px 12px rgba(0,0,0,.5)${active?',0 0 0 6px rgba(255,212,56,.25)':''}
+      ">${done?'✓':s.emoji}</div>`,
+      className:'',iconSize:[size,size],iconAnchor:[size/2,size/2]
+    });
+    const m=L.marker([s.lat,s.lng],{icon}).addTo(map);
+    m.bindPopup(`<b>${s.name}</b><br>+${s.xp} XP${done?' ✅':active?' ← Aktuell':''}`);
+    if(active) m.openPopup();
+    stopMarkers.push(m);
+  });
+}
+
+function moveAvatarMarker(){
+  const cur=STOPS[G.cur];
+  const avi=G.selfie
+    ? `<img src="${G.selfie}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : `<span style="font-size:22px">${G.avatar}</span>`;
+  const html=`<div style="
+    width:46px;height:46px;border-radius:50%;
+    background:var(--bg,#0A0A0F);display:flex;align-items:center;justify-content:center;
+    border:3px solid #FFD438;
+    box-shadow:0 0 0 4px rgba(255,212,56,.25),0 4px 16px rgba(0,0,0,.5);
+    animation:avatarPulse 2s ease-in-out infinite;overflow:hidden;
+  ">${avi}</div>`;
+  const icon=L.divIcon({html,className:'',iconSize:[46,46],iconAnchor:[23,23]});
+  if(avatarMarker){
+    avatarMarker.setLatLng([cur.lat+0.0003,cur.lng+0.0003]);
+    avatarMarker.setIcon(icon);
+  } else {
+    avatarMarker=L.marker([cur.lat+0.0003,cur.lng+0.0003],{icon,zIndexOffset:1000})
+      .addTo(map)
+      .bindPopup(`<b>${G.name}</b><br>Du bist hier! 📍`);
+  }
+  map.panTo([cur.lat,cur.lng]);
+}
+
+// ══════════════════════════════════════════════════
+//  COMPLETE & REEL
+// ══════════════════════════════════════════════════
+function showComplete(){
+  document.getElementById('finXp').textContent=G.xp;
+  document.getElementById('finStops').textContent=G.done.length;
+  document.getElementById('finPhotos').textContent=G.photos.length;
+  go('s-complete');
+  buildFilmstrip();
+  buildReel();
+}
+
+function buildFilmstrip(){
+  const strip=document.getElementById('filmstrip');
+  let html='';
+  if(G.selfie)html+=`<div class="film-frame"><img src="${G.selfie}"></div>`;
+  G.photos.forEach(p=>{html+=`<div class="film-frame"><img src="${p.url}"></div>`;});
+  STOPS.forEach(s=>{
+    if(!G.photos.find(p=>p.stopId===s.id)){
+      html+=`<div class="film-frame" style="background:${s.bg}">${s.emoji}</div>`;
+    }
+  });
+  strip.innerHTML=html;
+}
+
+function buildReel(){
+  G.reelFrames=[];
+  if(G.selfie)G.reelFrames.push({type:'img',url:G.selfie,label:'Dein Avatar'});
+  G.photos.forEach(p=>G.reelFrames.push({type:'img',url:p.url,label:p.label}));
+  STOPS.filter(s=>!G.photos.find(p=>p.stopId===s.id))
+       .forEach(s=>G.reelFrames.push({type:'emoji',emoji:s.emoji,bg:s.bg,label:s.name}));
+  if(G.reelFrames.length)drawReelFrame(0);
+}
+
+function drawReelFrame(idx){
+  G.reelIdx=idx%G.reelFrames.length;
+  const f=G.reelFrames[G.reelIdx];
+  const can=document.getElementById('memCanvas');
+  const ctx=can.getContext('2d');
+  ctx.clearRect(0,0,can.width,can.height);
+  if(f.type==='img'){
+    const img=new Image();
+    img.onload=()=>{
+      const sc=Math.max(can.width/img.width,can.height/img.height);
+      ctx.drawImage(img,(can.width-img.width*sc)/2,(can.height-img.height*sc)/2,img.width*sc,img.height*sc);
+      drawReelOverlay(ctx,can,f);
+    };
+    img.src=f.url;
+  }else{
+    const gr=ctx.createLinearGradient(0,0,can.width,can.height);
+    const cols=f.bg.match(/#[0-9A-Fa-f]{6}/g)||['#1A1A2E','#2D6A4F'];
+    gr.addColorStop(0,cols[0]);gr.addColorStop(1,cols[1]||cols[0]);
+    ctx.fillStyle=gr;ctx.fillRect(0,0,can.width,can.height);
+    ctx.font=`${can.height*.42}px serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(f.emoji,can.width/2,can.height/2);
+    drawReelOverlay(ctx,can,f);
+  }
+}
+
+function drawReelOverlay(ctx,can,f){
+  ctx.fillStyle='rgba(0,0,0,.55)';
+  ctx.fillRect(0,can.height-44,can.width,44);
+  ctx.fillStyle='#FFD438';ctx.font='bold 14px Fredoka One,Nunito,sans-serif';
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText('GrazQuest 🗺️',10,can.height-28);
+  ctx.fillStyle='rgba(255,255,255,.8)';ctx.font='12px Nunito,sans-serif';
+  ctx.fillText(f.label,10,can.height-12);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,.4)';
+  ctx.fillText(`${G.reelIdx+1}/${G.reelFrames.length}`,can.width-10,can.height-18);
+}
+
+function playReel(){
+  if(G.reelPlaying){
+    clearInterval(G.reelTimer);G.reelPlaying=false;
+    document.querySelector('.reel-play').textContent='▶ Abspielen';return;
+  }
+  G.reelPlaying=true;
+  document.querySelector('.reel-play').textContent='⏸ Pause';
+  G.reelTimer=setInterval(()=>{
+    G.reelIdx=(G.reelIdx+1)%G.reelFrames.length;
+    drawReelFrame(G.reelIdx);
+    if(G.reelIdx===G.reelFrames.length-1){
+      clearInterval(G.reelTimer);G.reelPlaying=false;
+      document.querySelector('.reel-play').textContent='▶ Nochmal';
+    }
+  },2000);
+}
+
+function saveReel(){
+  const can=document.getElementById('memCanvas');
+  const a=document.createElement('a');
+  a.download='GrazQuest-Erinnerung.jpg';a.href=can.toDataURL('image/jpeg',.9);a.click();
+  toast('⬇ Gespeichert!');
+}
+
+// ══════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);
+}
+function showCeleb(msg){
+  const c=document.getElementById('celeb');
+  document.getElementById('celebTxt').textContent=msg;
+  c.classList.add('show');
+  setTimeout(()=>c.classList.remove('show'),1600);
+}
+function spawnXpPop(msg){
+  const el=document.createElement('div');
+  el.className='xp-pop';el.textContent=msg;
+  el.style.bottom='20%';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1000);
+}
+function doConfetti(){
+  const cols=['#FFD438','#34D87A','#A855F7','#38BDF8','#FF5C5C','#FF7B3A','#fff'];
+  for(let i=0;i<32;i++){
+    const el=document.createElement('div');
+    el.className='confetti';
+    const s=el.style;
+    s.left=Math.random()*100+'vw';s.top='-12px';
+    s.background=cols[Math.floor(Math.random()*cols.length)];
+    s.width=(6+Math.random()*8)+'px';s.height=(6+Math.random()*8)+'px';
+    s.borderRadius=Math.random()>.5?'50%':'3px';
+    s.animationDelay=Math.random()*.4+'s';
+    s.animationDuration=(1.6+Math.random()*.8)+'s';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),2800);
+  }
+}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// init code display
+document.getElementById('codeDisplay').textContent=G.code;
+</script>
+</body>
+</html>
